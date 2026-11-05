@@ -1,7 +1,9 @@
 import { isOnShift } from '../core/ota.js';
 import { DAY, formatTime, HOUR } from '../core/time.js';
 import { advanceFleet, resetFleet, rolloutActive } from '../scenarios/fleet.js';
-import { cautiousKm, explain, operationsView, routeRow, STATUS, swapVehicle, undoSwap } from '../scenarios/operations.js';
+import { cautiousKm, explain, operationsView, routeRow, STATUS } from '../scenarios/operations.js';
+import { activeZones, swapRoute, undoRouteSwap } from '../scenarios/alerts.js';
+import { can, roleOf } from '../core/roles.js';
 import { CATALOG } from '../sdv/catalog.js';
 import { badge, h, panel } from './dom.js';
 import { getFleetMap } from './fleetmap.js';
@@ -18,6 +20,8 @@ const FILTERS = [
 
 // Outlives the tab, so a selection survives a trip to the Architecture view and back.
 const ui = { selected: null, filter: 'all', search: '' };
+
+export const selectRoute = (id) => { ui.selected = id; };
 
 const statusBadge = (status) => badge(`${STATUS[status].icon} ${STATUS[status].label}`, TONE[status]);
 
@@ -36,13 +40,13 @@ function statusBar(view) {
   );
 }
 
-function decisionCard(decision, onSwap, onPick) {
+function decisionCard(decision, onSwap, onPick, allowed) {
   const { row, spare, why } = decision;
   return h('li', { class: 'decision' },
     h('div', { class: 'decision-head' }, statusBadge(row.status), h('button', { class: 'link', onClick: () => onPick(row.route.id) }, `${row.route.id} · ${row.route.area}`)),
     h('p', {}, `${row.route.driver}: ${why}`),
     spare
-      ? h('button', { class: 'primary small', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`)
+      ? allowed && h('button', { class: 'primary small', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`)
       : h('p', { class: 'muted small' }, row.claim.action === 'No action needed' ? 'No spare is available. Call the driver.' : `No spare can cover it. ${row.claim.action}.`),
   );
 }
@@ -81,8 +85,8 @@ function detailDrawer(world, row, { onClose, onSwap, onUndo, spare, goTo }) {
     ),
     h('div', { class: `claim ${TONE[row.status] === 'neutral' ? '' : TONE[row.status]}` },
       h('strong', {}, `${STATUS[row.status].icon} ${STATUS[row.status].label}`), h('p', {}, explain(row))),
-    spare && h('button', { class: 'primary full', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`),
-    row.swapped && h('button', { class: 'full', onClick: () => onUndo(row.route.id) }, 'Undo swap'),
+    spare && can(roleOf(world), 'route.swap') && h('button', { class: 'primary full', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`),
+    row.swapped && can(roleOf(world), 'route.swap') && h('button', { class: 'full', onClick: () => onUndo(row.route.id) }, 'Undo swap'),
     h('dl', { class: 'facts' },
       h('dt', {}, 'Route left'), h('dd', {}, `${row.kmRemaining.toFixed(0)} of ${row.route.km} km`),
       h('dt', {}, 'Cautious range'), h('dd', {}, `${cautiousKm(row).toFixed(0)} km `, badge('Estimate', 'warn')),
@@ -92,7 +96,7 @@ function detailDrawer(world, row, { onClose, onSwap, onUndo, spare, goTo }) {
     ),
     h('p', { class: 'label' }, 'On this vehicle'),
     h('ul', { class: 'plain' }, features.map((f) => h('li', { class: 'feature-row' }, f.label, active.includes(f.id) ? badge('✓ On', 'good') : badge('Not on')))),
-    h('button', { class: 'link top-gap', onClick: () => { world.traceRoute = row.route.id; goTo('architecture'); } }, 'See how this was calculated →'),
+    can(roleOf(world), 'trace.view') && h('button', { class: 'link top-gap', onClick: () => { world.traceRoute = row.route.id; goTo('architecture'); } }, 'See how this was calculated →'),
   );
 }
 
@@ -100,8 +104,8 @@ export function mountOperator(root, { world, goTo }) {
   const pick = (id) => { ui.selected = id; render(); };
   const fleetMap = getFleetMap();
   fleetMap.onPick = pick;
-  const swap = (routeId, vin) => { swapVehicle(world, routeId, vin); ui.selected = routeId; render(); };
-  const undo = (routeId) => { undoSwap(world, routeId); render(); };
+  const swap = (routeId, vin) => { swapRoute(world, routeId, vin); ui.selected = routeId; render(); };
+  const undo = (routeId) => { undoRouteSwap(world, routeId); render(); };
 
   function onKey(event) {
     if (!root.isConnected) document.removeEventListener('keydown', onKey);
@@ -122,7 +126,7 @@ export function mountOperator(root, { world, goTo }) {
     const total = view.rows.length;
     const unconfirmed = view.counts.UNCONFIRMED;
     const selected = ui.selected ? routeRow(world, ui.selected) : null;
-    fleetMap.update(view, ui.selected);
+    fleetMap.update(view, ui.selected, activeZones(world));
     const selectedSpare = selected && view.decisions.find((d) => d.row.route.id === ui.selected)?.spare;
 
     const summary = [
@@ -160,6 +164,7 @@ export function mountOperator(root, { world, goTo }) {
             h('span', {}, h('i', { class: 'tri' }), 'At risk'),
             h('span', {}, h('i', { class: 'sq' }), 'Won’t finish'),
             h('span', {}, h('i', { class: 'depot-key' }), 'Depot'),
+            h('span', {}, h('i', { class: 'zone-key' }), 'Closure'),
             h('span', {}, h('i', { class: 'line-key todo' }), 'Still to drive'),
             h('span', {}, h('i', { class: 'line-key done' }), 'Driven'),
           ),
@@ -169,7 +174,7 @@ export function mountOperator(root, { world, goTo }) {
         ),
         panel(`Your decisions (${view.needsDecision})`,
           view.decisions.length
-            ? h('ol', { class: 'decisions' }, view.decisions.map((d) => decisionCard(d, swap, pick)))
+            ? h('ol', { class: 'decisions' }, view.decisions.map((d) => decisionCard(d, swap, pick, can(roleOf(world), 'route.swap'))))
             : h('p', { class: 'muted' }, 'You’re clear. Every route is on track or being watched.'),
           h('p', { class: 'muted small' }, `${view.spares.length} spare vehicle${view.spares.length === 1 ? '' : 's'} available.`),
         ),

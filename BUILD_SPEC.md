@@ -176,6 +176,32 @@ Test: every route is a street-following loop from the depot, in central Los Ange
 named area. Distances match the routed geometry. An offline vehicle appears where it last
 reported, not where it should be by now.
 
+### Running the fleet
+
+**R24 · Alerts earn their interruption.**
+Felt: when something interrupts you, it's worth it.
+Test: critical alerts fire at once. Warnings wait an hour and need a connected vehicle. Open
+alerts never repeat, and a dismissed one stays quiet for the day. Swaps count as action.
+
+**R25 · Geofences use real geometry.**
+Felt: you find out when a vehicle enters a closure.
+Test: closures sit on streets that real routes use. Each fires once per route per day, and
+turning one off stops it.
+
+**R26 · Maintenance says what's due and tracks the work.**
+Felt: nothing gets missed, and a technician sees only what they need.
+Test: work comes due as vehicles drive. A finished work order resets that item. Software faults
+appear as broken. The view contains no driver or location data.
+
+**R27 · Reports close the day, and custody can be looked up.**
+Felt: the owner can see how the week went, and answer who had a vehicle at a given time.
+Test: a day closes at the end of the shift and can't change. Custody follows swaps, and an
+undone swap leaves no record. Future times are refused.
+
+**R28 · Roles are enforced in the logic, not just hidden.**
+Felt: people see the tools for their job and nothing else.
+Test: each role has a limited surface. Blocked actions throw when called directly.
+
 ---
 
 ## 4 · WHAT I'M NOT BUILDING, AND WHY
@@ -183,8 +209,9 @@ reported, not where it should be by now.
 - **Real cryptography.** Certificates and leases are modeled, not signed. The lifecycle is
   the point, and fake crypto would claim something it doesn't do.
 - **ISO/SAE 21434 or UNECE R155/R156 compliance.** Nothing here implements them.
-- **Alerting, public APIs, a production customer app.** The Operator screen is a simulated
-  view of the data, not a shipped app.
+- **Public APIs, real notifications, a production customer app.** Alerts stay in the app, with
+  no email, SMS, or push, and these screens are simulated views of the data, not shipped apps.
+- **Per-driver scoring.** It would need a real decision about worker monitoring first.
 - **A real battery model.** The voltage-to-SoC curve is linear. Real packs aren't.
 
 ---

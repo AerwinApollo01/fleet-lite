@@ -26,6 +26,9 @@ npm test
 | Tab | What it shows | Requirements |
 |---|---|---|
 | Operator | The fleet owner's day: one headline, a decision queue, and every route | R20–R22 |
+| Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
+| Maintenance | What's due, work orders, and what's broken | R26 |
+| Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
 | Architecture | The whole system as a live map, with traces through each layer | R20 |
 | Vehicle | Runtime capability, hardware abstraction, and a software-defined scorecard | R13–R17 |
 | Transfer | Moving a vehicle between operators while it's offline | R1–R4 |
@@ -33,8 +36,9 @@ npm test
 | OTA rollout | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
 | Range | Measured vs. modeled values, and the customer-facing claim | R10–R11 |
 
-R12 (location retention) is tested in the core and has no tab. The Operator, Architecture,
-Vehicle, and OTA tabs share one fleet of 60 vehicles.
+R12 (location retention) is tested in the core and has no tab. Screens depend on the role in
+"Viewing as" (R28), and the platform engineer sees all of them. Everything except Transfer,
+Revocation, and Range shares one fleet of 60 vehicles.
 
 ## Map data
 
@@ -72,6 +76,12 @@ freezes it, not stops it" with nothing running, which proves nothing. It now has
 running something to pass.
 
 ## Not done
+
+- **Alerts stay in the app.** There's no email, SMS, or push.
+- **Closures are fixed.** You can turn the two sample closures on and off, but not draw new ones.
+- **Roles are a switcher, not a login.** The checks are real, but there's no authentication.
+- **Maintenance figures are assumptions.** Service intervals and wear are placeholders.
+- **No per-driver scoring.** That needs a real decision about worker monitoring first.
 
 - **Transfer, Revocation, and Range are still their own scripted worlds.** They don't share
   the fleet.

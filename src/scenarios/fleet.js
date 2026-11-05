@@ -5,6 +5,8 @@ import { CATALOG } from '../sdv/catalog.js';
 import { featureApplier } from '../sdv/deploy.js';
 import { canHost, resolveCapabilities } from '../sdv/resolver.js';
 import { createTwin, reconcile, setDesired } from '../sdv/twin.js';
+import { createAlertState, evaluateAlerts } from './alerts.js';
+import { createReportState, recordHour } from './reports.js';
 
 export const OWNER = 'Release owner';
 export const FACTORY_FEATURES = ['range-forecast', 'battery-health'];
@@ -35,7 +37,13 @@ export function createFleetWorld(count = 60) {
   }));
   const now = at(1, 10);
   applyConnectivity(fleet, now);
-  return { now, fleet, campaign: null, rollout: null, excluded: [], swaps: {} };
+  const world = {
+    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [],
+    ...createAlertState(),
+    ...createReportState(),
+  };
+  evaluateAlerts(world);
+  return world;
 }
 
 export function resetFleet(world) {
@@ -110,7 +118,10 @@ export function advanceFleet(world, hours) {
     if (world.campaign) {
       step(world.campaign, world.fleet, world.now, faultModel(world.rollout.faultRate));
     }
+    evaluateAlerts(world);
+    recordHour(world);
   }
+  world.onChange?.();
 }
 
 // Release is a separate decision from deployment, and it can happen after hours or on shift.

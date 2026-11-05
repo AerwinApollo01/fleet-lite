@@ -5,12 +5,14 @@ import { drift } from '../sdv/twin.js';
 import { HARDWARE } from '../sdv/hardware.js';
 import { cautiousKm, operationsView, POLICY, routeRow, STATUS, supplierLabel } from './operations.js';
 import { rolloutActive } from './fleet.js';
+import { alertSummary } from './alerts.js';
+import { maintenanceView } from './maintenance.js';
 
 export const COLUMNS = [
   { id: 'vehicle', label: 'On the vehicle', note: 'Keeps working with no signal' },
   { id: 'link', label: 'Connection', note: 'Offline is the normal case' },
   { id: 'cloud', label: 'Cloud platform', note: 'Decides, and keeps the record' },
-  { id: 'surface', label: 'What people see', note: 'One pipeline, two surfaces' },
+  { id: 'surface', label: 'What people see', note: 'One pipeline, separate surfaces' },
 ];
 
 export const NODES = [
@@ -25,8 +27,11 @@ export const NODES = [
   { id: 'rollout', column: 'cloud', title: 'Rollout campaigns', text: 'Stages, gates, halt, and rollback', ref: 'AD-6' },
   { id: 'ingest', column: 'cloud', title: 'Ingest and raw store', text: 'Immutable, except location', ref: 'R3, R12' },
   { id: 'model', column: 'cloud', title: 'Range model and claim policy', text: 'Turns an estimate into a decision', ref: 'R10–R11' },
+  { id: 'alerts', column: 'cloud', title: 'Alert rules', text: 'Confirms first, repeats never, measures action', ref: 'AD-7' },
+  { id: 'records', column: 'cloud', title: 'Maintenance and reports', text: 'Work orders, closed days, and custody', ref: 'R26–R27' },
   { id: 'operator', column: 'surface', title: 'Operator app', text: 'One decision per route', ref: 'R20' },
-  { id: 'internal', column: 'surface', title: 'Internal console', text: 'Raw values, intervals, and versions', ref: 'R10' },
+  { id: 'internal', column: 'surface', title: 'Internal console', text: 'Raw values, intervals, and versions', ref: 'AD-8' },
+  { id: 'service', column: 'surface', title: 'Service view', text: 'Vehicles and work, with no driver data', ref: 'AD-8' },
 ];
 
 export const EDGES = [
@@ -34,6 +39,7 @@ export const EDGES = [
   ['sync', 'ingest'], ['sync', 'twin'], ['sync', 'identity'],
   ['identity', 'entitlement'], ['entitlement', 'twin'], ['rollout', 'twin'], ['ingest', 'model'],
   ['model', 'operator'], ['model', 'internal'], ['twin', 'operator'], ['twin', 'internal'], ['rollout', 'internal'],
+  ['model', 'alerts'], ['alerts', 'operator'], ['alerts', 'records'], ['records', 'service'],
 ];
 
 export const TRACES = [
@@ -41,6 +47,7 @@ export const TRACES = [
   { id: 'rollout', label: 'Feature rollout', path: ['rollout', 'twin', 'sync', 'local', 'apps', 'operator'] },
   { id: 'release', label: 'Feature release', path: ['entitlement', 'twin', 'sync', 'local', 'apps', 'operator'] },
   { id: 'driver', label: 'Driver access', path: ['identity', 'sync', 'local', 'hardware'] },
+  { id: 'alert', label: 'Alert', path: ['hardware', 'hal', 'sync', 'ingest', 'model', 'alerts', 'operator'] },
 ];
 
 export function nodeStats(world) {
@@ -62,6 +69,9 @@ export function nodeStats(world) {
     rollout: world.campaign ? `${world.rollout.label}: ${rolloutActive(world) ? 'in progress' : 'finished'}` : 'None running',
     model: `Policy owner: ${POLICY.owner}`,
     operator: `${view.needsDecision} decisions waiting`,
+    alerts: `${alertSummary(world).open.length} open, ${world.heldBack} held back`,
+    records: `${world.reports.length} closed day${world.reports.length === 1 ? '' : 's'}, ${maintenanceView(world).work.length} items due`,
+    service: `${maintenanceView(world).scheduled.length} work orders open`,
     internal: `${versions} firmware version${versions === 1 ? '' : 's'} in the field`,
   };
 }
@@ -103,6 +113,18 @@ export function traceSteps(world, traceId, routeId) {
       { node: 'local', kind: 'fact', text: 'The vehicle updates its local state', value: 'Last known good until then' },
       { node: 'apps', kind: 'fact', text: 'The resolver turns the feature on', value: `${row.capabilities.active.length} active` },
       { node: 'operator', kind: 'claim', text: 'The operator’s decisions improve', value: row.payload.provenance === 'measured' ? 'Using measured load' : 'Using assumed load' },
+    ];
+  }
+  if (traceId === 'alert') {
+    const summary = alertSummary(world);
+    return [
+      { node: 'hardware', kind: 'measured', text: 'The vehicle reports its battery state', value: `${row.reading.packVolts.toFixed(1)} V` },
+      { node: 'hal', kind: 'measured', text: 'The abstraction layer converts it to the contract', value: supplierLabel(vehicle) },
+      { node: 'sync', kind: 'fact', text: vehicle.online ? 'Connected, so the data can be trusted for an alert' : 'No signal, so a warning is held back', value: vehicle.online ? 'Just now' : `${row.lastSeenMin} min old` },
+      { node: 'ingest', kind: 'fact', text: 'Stored raw, by event time', value: vehicle.vin },
+      { node: 'model', kind: 'policy', text: 'The claim policy gives this route a status', value: STATUS[row.status].label },
+      { node: 'alerts', kind: 'policy', text: 'Critical alerts fire at once. Warnings wait an hour', value: `${summary.heldBack} held back so far` },
+      { node: 'operator', kind: 'claim', text: 'A person acts, and that gets measured', value: summary.actionRate === null ? 'No closed alerts yet' : `${Math.round(summary.actionRate * 100)}% led to action` },
     ];
   }
   return [

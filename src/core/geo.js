@@ -39,3 +39,15 @@ export function boundsOf(paths) {
   const lats = points.map(([, lat]) => lat);
   return [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]];
 }
+
+export const insideZone = (point, zone) => distanceKm(point, zone.center) <= zone.radiusKm;
+
+// A circle as a map polygon, corrected for longitude shrinking away from the equator.
+export function circlePolygon({ center: [lon, lat], radiusKm }, sides = 48) {
+  const latDegrees = radiusKm / 111.32;
+  const lonDegrees = latDegrees / Math.cos(radians(lat));
+  return Array.from({ length: sides + 1 }, (_, i) => {
+    const angle = (i / sides) * Math.PI * 2;
+    return [lon + Math.cos(angle) * lonDegrees, lat + Math.sin(angle) * latDegrees];
+  });
+}

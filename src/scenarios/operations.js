@@ -53,7 +53,7 @@ function planningDay(now) {
   return Math.floor(now / DAY) + (hours >= SHIFT.endHour ? 1 : 0);
 }
 
-function defaultVehicle(world, route) {
+export function defaultVehicle(world, route) {
   const slots = world.fleet.filter((_, i) => !isSpareSlot(i));
   return slots[route.index];
 }
@@ -154,7 +154,7 @@ export function explain(row) {
 }
 
 export function operationsView(world) {
-  const rows = ROUTES.map((route) => rowFor(world, route));
+  const rows = routeRows(world);
   const counts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, rows.filter((r) => r.status === key).length]));
 
   const actions = rows
@@ -193,12 +193,18 @@ export function swapVehicle(world, routeId, vin) {
   const route = ROUTES.find((r) => r.id === routeId);
   if (!route) throw new Error(`Unknown route ${routeId}`);
   if (!availableSpares(world).some((v) => v.vin === vin)) throw new Error(`${vin} isn’t available as a spare`);
-  world.swaps[routeId] = { vin, at: world.now, day: planningDay(world.now) };
+  const from = vehicleFor(world, route).vin;
+  const day = planningDay(world.now);
+  world.swaps[routeId] = { vin, at: world.now, day };
+  world.swapLog.push({ routeId, from, to: vin, at: world.now, day });
 }
 
 export function undoSwap(world, routeId) {
   delete world.swaps[routeId];
+  world.swapLog = world.swapLog.filter((entry, i, log) => !(entry.routeId === routeId && i === log.findLastIndex((e) => e.routeId === routeId)));
 }
+
+export const routeRows = (world) => ROUTES.map((route) => rowFor(world, route));
 
 export function routeRow(world, routeId) {
   return rowFor(world, ROUTES.find((r) => r.id === routeId));

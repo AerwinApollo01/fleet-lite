@@ -90,6 +90,29 @@ the version inventory a model-year company doesn't have.
 **Test.** A campaign excludes ineligible vehicles and can still complete (R18). A bad
 feature stops at the canary and rolls back through the twin (R19).
 
+## AD-7 · Alerts are rationed, and measured by what they cause
+
+**Decision.** Critical alerts fire at once, even on last-known data. Warnings must last an hour
+and need a connected vehicle. An open alert never repeats, and "Not useful" mutes it for the
+day. The headline measure is the share of closed alerts that led to action.
+**Why.** Someone running dozens of routes mutes anything that cries wolf twice, so a precise
+alert nobody trusts is worth nothing. The queue on the Operator screen always shows every
+problem, so holding an alert back delays an interruption, not the information.
+**Cost.** A real problem can take up to an hour to interrupt anyone.
+**Revisit if.** The action rate stays high and people say they heard about problems too late.
+**Test.** Warnings wait for time rather than checks, and swaps count as action (R24).
+
+## AD-8 · Roles are enforced in the logic, and surfaces stay separate
+
+**Decision.** A role decides which screens exist and what actions are allowed. Actions are
+checked in the logic, not only hidden in the UI. Customers never see the engineering views, and
+the service view carries no driver or location data.
+**Why.** Internal users debug the system and customers depend on it, so they need different
+surfaces. Giving each role only what its job needs is also the simplest privacy control.
+**Cost.** Every new action needs a decision about who can do it.
+**Revisit if.** Customers need finer control than four fixed roles.
+**Test.** Blocked actions throw, even when called directly (R28).
+
 ---
 
 ## Decisions already in place

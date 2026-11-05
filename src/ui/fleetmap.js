@@ -2,7 +2,7 @@
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { boundsOf, splitPath } from '../core/geo.js';
+import { boundsOf, circlePolygon, splitPath } from '../core/geo.js';
 import { DEPOT, ROUTES, STATUS } from '../scenarios/operations.js';
 import { h } from './dom.js';
 
@@ -107,6 +107,10 @@ function createFleetMap() {
       label: `${row.route.id} · ${row.route.area} · ${STATUS[row.status].label}`,
     }))));
     map.getSource('attention').setData(lines(view.decisions.map((d) => d.row.route.path)));
+    map.getSource('zones').setData({
+      type: 'FeatureCollection',
+      features: state.zones.map((zone) => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circlePolygon(zone)] } })),
+    });
     applyFocus();
 
     if (selected !== state.focused) {
@@ -116,11 +120,15 @@ function createFleetMap() {
     }
   }
 
-  function update(view, selected) {
+  function update(view, selected, zones = []) {
     state.view = view;
     state.selected = selected;
-    requestAnimationFrame(() => map.resize());
-    if (state.ready) applyView();
+    state.zones = zones;
+    // Resize first: the map may have just come back on screen, and fitting needs its real size.
+    requestAnimationFrame(() => {
+      map.resize();
+      if (state.ready) applyView();
+    });
   }
 
   // The map style names a texture it doesn't ship. A blank image keeps the console clean.
@@ -130,6 +138,9 @@ function createFleetMap() {
 
   map.on('load', () => {
     for (const [name, draw] of Object.entries(ICONS)) map.addImage(name, icon(draw), { pixelRatio: 2 });
+    map.addSource('zones', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': COLORS.bad, 'fill-opacity': 0.14 } });
+    map.addLayer({ id: 'zones-line', type: 'line', source: 'zones', paint: { 'line-color': COLORS.bad, 'line-width': 1.5, 'line-dasharray': [2, 2] } });
     for (const id of ['attention', 'driven', 'remaining']) map.addSource(id, { type: 'geojson', data: lines([]) });
     for (const id of ['stops', 'vehicles']) map.addSource(id, { type: 'geojson', data: points([]) });
     map.addSource('depot', { type: 'geojson', data: points([{ at: DEPOT }]) });

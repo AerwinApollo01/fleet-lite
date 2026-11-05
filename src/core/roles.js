@@ -1,10 +1,10 @@
 // The customer surface and the internal surface share a pipeline and little else. A role
 // decides which screens exist for you and, separately, what you're allowed to do.
 export const ROLES = {
-  engineer: { label: 'Platform engineer', tabs: ['operator', 'alerts', 'maintenance', 'reports', 'architecture', 'vehicle', 'transfer', 'revocation', 'ota', 'range'] },
-  owner: { label: 'Fleet owner', tabs: ['operator', 'alerts', 'maintenance', 'reports'] },
-  dispatcher: { label: 'Dispatcher', tabs: ['operator', 'alerts'] },
-  technician: { label: 'Service technician', tabs: ['maintenance'] },
+  engineer: { label: 'Platform engineer', tabs: ['operator', 'alerts', 'maintenance', 'reports', 'learn', 'architecture', 'vehicle', 'transfer', 'revocation', 'ota', 'range'] },
+  owner: { label: 'Fleet owner', tabs: ['operator', 'alerts', 'maintenance', 'reports', 'learn'] },
+  dispatcher: { label: 'Dispatcher', tabs: ['operator', 'alerts', 'learn'] },
+  technician: { label: 'Service technician', tabs: ['maintenance', 'learn'] },
 };
 
 const ACTIONS = {

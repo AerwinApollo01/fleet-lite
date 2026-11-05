@@ -202,6 +202,13 @@ undone swap leaves no record. Future times are refused.
 Felt: people see the tools for their job and nothing else.
 Test: each role has a limited surface. Blocked actions throw when called directly.
 
+### Learning
+
+**R29 · The app teaches its own vocabulary.**
+Felt: someone new to the field can look up any term and see it working.
+Test: every glossary entry has a category and plain definition, terms are unique, and every link
+goes to a real screen. Every role can open Learn.
+
 ---
 
 ## 4 · WHAT I'M NOT BUILDING, AND WHY

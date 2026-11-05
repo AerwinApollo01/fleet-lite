@@ -29,6 +29,7 @@ npm test
 | Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
+| Learn | A searchable glossary and lessons learned from this build | R29 |
 | Architecture | The whole system as a live map, with traces through each layer | R20 |
 | Vehicle | Runtime capability, hardware abstraction, and a software-defined scorecard | R13–R17 |
 | Transfer | Moving a vehicle between operators while it's offline | R1–R4 |

@@ -10,6 +10,7 @@ import { mountArchitecture } from './architecture.js';
 import { mountAlerts } from './alerts.js';
 import { mountMaintenance } from './maintenance.js';
 import { mountReports } from './reports.js';
+import { mountLearn } from './learn.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 import { alertSummary } from '../scenarios/alerts.js';
 import { roleOf, ROLES } from '../core/roles.js';
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'alerts', label: 'Alerts', mount: mountAlerts },
   { id: 'maintenance', label: 'Maintenance', mount: mountMaintenance },
   { id: 'reports', label: 'Reports', mount: mountReports },
+  { id: 'learn', label: 'Learn', mount: mountLearn },
   { id: 'architecture', label: 'Architecture', mount: mountArchitecture },
   { id: 'vehicle', label: 'Vehicle', mount: mountVehicle },
   { id: 'ota', label: 'OTA rollout', mount: mountOta },

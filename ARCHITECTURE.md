@@ -1,0 +1,124 @@
+# fleet-lite — Architecture Decisions
+
+**The rule behind all of them:**
+
+> The parts decide what the vehicle *could* do. Software decides what it does, again and
+> again, after it's been delivered.
+
+Each decision names what it costs and when to revisit it. A decision with no
+downside isn't a decision. All of this is my inference about the category, built on
+simulated vehicles. It isn't any company's real architecture.
+
+---
+
+## AD-1 · Apps talk to capabilities, never to supplier parts
+
+**Decision.** A hardware abstraction layer sits between hardware and applications. Features
+declare the capabilities they need, such as `battery`. Supplier adapters translate each
+part's format into one contract.
+**Why.** Without this layer, every feature is bound to a specific part from a specific
+supplier, and changing behavior means changing hardware.
+**Cost.** Every new part needs an adapter, and the contract limits apps to what all
+suppliers can provide.
+**Revisit if.** A capability only one supplier will ever offer, where the
+contract adds cost and no optionality.
+**Test.** Two BMS suppliers with different units give the same range estimate (R13).
+
+## AD-2 · Capability is resolved at runtime, per vehicle
+
+**Decision.** A feature is active only if the hardware can host it, the software is
+installed, the vehicle is entitled, and it fits the compute budget. The resolver also says
+which condition failed.
+**Why.** Capability stops being a property of the SKU. Support can answer "why doesn't this
+vehicle have it?" without an engineer.
+**Cost.** Four conditions means four ways to be confused. Every vehicle can differ, so
+support needs tooling a model-year company doesn't.
+**Revisit if.** A fleet so uniform that per-vehicle resolution never changes
+an answer.
+**Test.** Same hardware, different entitlements, different active features (R14).
+
+## AD-3 · Hardware is over-provisioned against a named roadmap
+
+**Decision.** Compute and sensing ship with headroom sized to a specific roadmap feature,
+not a vague margin.
+**Why.** Headroom is a real unit cost paid years before the revenue, so it needs an argument
+someone can defend. "Room for the proximity feature" can be defended. "Future-proofing"
+can't.
+**Cost.** Higher BOM on every vehicle, on low-margin hardware. If the roadmap slips, that
+money is gone.
+**Revisit if.** A roadmap that can't name the feature. Then ship the lean BOM.
+**Test.** The roadmap feature fits on the headroom revision and not on the lean one (R15).
+
+## AD-4 · The cloud decides, the vehicle acts, and it fails static
+
+**Decision.** Each vehicle has a twin with **desired** state (what the cloud wants) and
+**reported** state (what the vehicle actually runs). Sync reconciles them, one atomic
+generation at a time. If the vehicle can't reach the cloud, it keeps its last known good.
+**Why.** Offline is the normal case, so the vehicle can never need the cloud in order to
+run. But the platform still needs to know where each vehicle really is.
+**Cost.** Drift is a permanent condition you have to display and manage. An offline vehicle
+keeps a feature after its entitlement ends.
+**Revisit if.** A feature where stale state is dangerous. That one needs a
+lease, like driver access.
+**Test.** Changes queue offline, the vehicle keeps running, and a rejected generation leaves
+the old one intact (R16).
+
+## AD-5 · Safety and legal limits are bound at manufacture
+
+**Decision.** Each subsystem has a binding. Brakes aren't software-configurable at all.
+Tunable settings have an envelope fixed in hardware config. The cloud checks it, and the
+vehicle checks it again, because the vehicle can't assume the cloud is right.
+**Why.** Some things should stay hardware-defined. Hardware caution
+is encoded where irreversibility is real, and software moves fast everywhere else.
+**Cost.** Changing an envelope means a hardware-level change process, even when there's a
+good business reason.
+**Revisit if.** Validated evidence and a change process from the people who
+own safety. Not a product request.
+**Test.** Out-of-envelope and locked settings are rejected at both layers (R17).
+
+## AD-6 · The installed base is the deployment target
+
+**Decision.** Firmware and features reach vehicles one way: a staged campaign. A feature
+rollout changes desired state, and the vehicle's own reconcile decides whether it landed.
+Vehicles that can't host the build are excluded with a reason, not silently skipped or
+counted as failures. Installs wait until off shift. **Deployed isn't released:** a feature
+can sit installed and dark until it's entitled, which can happen any time.
+**Why.** Once hardware revisions mix in the field, "the fleet" is not one target. This is
+the version inventory a model-year company doesn't have.
+**Cost.** Every hardware revision multiplies the test matrix for as long as it's in service.
+**Revisit if.** There are so few hardware revisions that eligibility logic isn't needed yet.
+**Test.** A campaign excludes ineligible vehicles and can still complete (R18). A bad
+feature stops at the canary and rolls back through the twin (R19).
+
+---
+
+## Decisions already in place
+
+| Decision | Where | Requirement |
+|---|---|---|
+| Data belongs to the owner at event time, not arrival time | `core/telemetry.js` | R2 |
+| Raw data is immutable, except location | `core/telemetry.js` | R12 |
+| Driver access uses short leases cached on the vehicle | `core/auth.js` | R5, R6 |
+| Silence never passes a rollout gate | `core/ota.js` | R8 |
+| Every number carries measured or modeled provenance | `core/range.js` | R10 |
+
+---
+
+## Where each subsystem sits
+
+| Subsystem | Binding | Why |
+|---|---|---|
+| Frame, brakes | Hardware | Physics and safety. Not configurable. |
+| Motor assist limit | Bounded | Tunable within a fixed envelope |
+| Charge limit | Bounded | Chemistry is fixed, charge policy is tunable |
+| Range estimation | Software | A model over measured inputs |
+| Driver access | Software | A runtime decision, with a stated offline worst case |
+| Diagnostics | Software | Thresholds and confidence can change |
+
+---
+
+## The test for all of this
+
+If the cloud disappeared for a year, the vehicle should keep working on its last known good
+state, and the product should stop changing. The Vehicle tab computes that from real state,
+along with the rest of the scorecard.

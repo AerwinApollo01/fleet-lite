@@ -33,7 +33,9 @@ export function createFleetWorld(count = 60) {
     faulted: false,
     pinnedOffline: false,
   }));
-  return { now: at(1, 18), fleet, campaign: null, rollout: null, excluded: [] };
+  const now = at(1, 10);
+  applyConnectivity(fleet, now);
+  return { now, fleet, campaign: null, rollout: null, excluded: [], swaps: {} };
 }
 
 export function resetFleet(world) {

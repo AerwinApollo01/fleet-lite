@@ -152,6 +152,24 @@ Test: a feature rollout stages across a mixed fleet and excludes vehicles by rea
 one halts at the canary and rolls back through the twin without touching entitlement.
 Installed features stay dark until entitled. One campaign runs at a time.
 
+### Operator experience
+
+**R20 · The operator gets one decision per route, from the real pipeline.**
+Felt: the owner can see in seconds whether today's commitments will be met.
+Test: every route has exactly one status and a plain-language reason, with no raw model terms.
+Claims come from the same HAL, range model, and policy as everything else. An offline vehicle
+is never called on track.
+
+**R21 · A software change reaches the operator as a better decision.**
+Felt: a released feature changes what the operator can trust.
+Test: payload stays assumed until load-aware range is released, then it's measured, and at
+least one route decision changes.
+
+**R22 · Decisions change the plan.**
+Felt: acting on a problem clears it.
+Test: swapping to a recommended spare resolves the decision. A spare is never offered twice,
+and a vehicle that was swapped out isn't offered again.
+
 ---
 
 ## 4 · WHAT I'M NOT BUILDING, AND WHY
@@ -159,7 +177,8 @@ Installed features stay dark until entitled. One campaign runs at a time.
 - **Real cryptography.** Certificates and leases are modeled, not signed. The lifecycle is
   the point, and fake crypto would claim something it doesn't do.
 - **ISO/SAE 21434 or UNECE R155/R156 compliance.** Nothing here implements them.
-- **Alerting, APIs, a customer app.** These come after the lifecycle layers.
+- **Alerting, public APIs, a production customer app.** The Operator screen is a simulated
+  view of the data, not a shipped app.
 - **A real battery model.** The voltage-to-SoC curve is linear. Real packs aren't.
 
 ---

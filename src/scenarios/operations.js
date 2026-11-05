@@ -1,0 +1,208 @@
+// The operator's day, computed from the shared fleet. Routes, charge levels, and loads are
+// simulated. Every claim on the Operator screen comes through the real HAL, range model,
+// and claim policy, so the screen can't drift from the architecture underneath it.
+import { isOnShift, SHIFT } from '../core/ota.js';
+import { hash01 } from '../core/rng.js';
+import { createClaimPolicy, routeClaim } from '../core/range.js';
+import { DAY, HOUR } from '../core/time.js';
+import { runRangeApp } from '../sdv/apps.js';
+import { BATTERY_SUPPLIERS, createHal } from '../sdv/hal.js';
+import { HARDWARE } from '../sdv/hardware.js';
+import { resolveCapabilities } from '../sdv/resolver.js';
+
+export const POLICY = createClaimPolicy({ owner: 'Fleet product owner', reserveKm: 2 });
+
+export const STATUS = {
+  ON_TRACK: { label: 'On track', icon: '✓', rank: 4 },
+  UNCONFIRMED: { label: 'No recent signal', icon: '?', rank: 3 },
+  NO_FORECAST: { label: 'No forecast', icon: '–', rank: 5 },
+  AT_RISK: { label: 'At risk', icon: '!', rank: 2 },
+  WONT_FINISH: { label: 'Won’t finish', icon: '✕', rank: 1 },
+  OUT_OF_SERVICE: { label: 'Out of service', icon: '✕', rank: 0 },
+};
+
+const FIRST = ['Maya', 'Theo', 'Priya', 'Luis', 'Nora', 'Sam', 'Ines', 'Omar', 'Kira'];
+const LAST = ['A.', 'B.', 'C.', 'D.', 'F.', 'G.'];
+const VOLTS_PER_KM = 0.3;
+
+const isSpareSlot = (index) => index % 10 === 9;
+
+export const ROUTES = Array.from({ length: 54 }, (_, i) => {
+  const id = `R-${String(i + 1).padStart(2, '0')}`;
+  const angle = (i / 54) * Math.PI * 2 + hash01(`${id}:a`) * 0.1;
+  const reach = 0.5 + hash01(`${id}:r`) * 0.5;
+  return {
+    id,
+    index: i,
+    driver: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`,
+    km: Math.round(13 + hash01(`${id}:km`) * 14),
+    payloadKg: Math.round(70 + hash01(`${id}:kg`) * 120),
+    gradePct: Math.round(hash01(`${id}:g`) * 4) / 2,
+    stopsPerKm: Math.round((2 + hash01(`${id}:s`) * 2.5) * 2) / 2,
+    end: { x: 320 + Math.cos(angle) * 290 * reach, y: 180 + Math.sin(angle) * 160 * reach },
+  };
+});
+
+function shiftProgress(now) {
+  if (!isOnShift(now)) return 0;
+  const hours = (now % DAY) / HOUR;
+  return (hours - SHIFT.startHour) / (SHIFT.endHour - SHIFT.startHour);
+}
+
+// After the shift ends, the screen is planning the next one.
+function planningDay(now) {
+  const hours = (now % DAY) / HOUR;
+  return Math.floor(now / DAY) + (hours >= SHIFT.endHour ? 1 : 0);
+}
+
+function defaultVehicle(world, route) {
+  const slots = world.fleet.filter((_, i) => !isSpareSlot(i));
+  return slots[route.index];
+}
+
+// A swap covers one shift. The next plan starts from the normal assignments.
+function activeSwap(world, route) {
+  const swap = world.swaps[route.id];
+  return swap?.day === planningDay(world.now) ? swap : null;
+}
+
+export function vehicleFor(world, route) {
+  const swap = activeSwap(world, route);
+  return swap ? world.fleet.find((v) => v.vin === swap.vin) : defaultVehicle(world, route);
+}
+
+function morningVolts(vin, day) {
+  const undercharged = hash01(`${vin}:low:${day}`) < 0.08;
+  const spread = hash01(`${vin}:charge:${day}`);
+  return undercharged ? 46.8 + spread * 1.8 : 51.6 + spread * 3;
+}
+
+// One vehicle on one route, at one moment. `fresh` means it hasn't driven any of it yet.
+function evaluate(world, vehicle, route, { fresh = false } = {}) {
+  const day = planningDay(world.now);
+  const lastSeenMin = vehicle.online ? 1 + Math.floor(hash01(`${vehicle.vin}:fresh:${world.now}`) * 4) : 12 + Math.floor(hash01(`${vehicle.vin}:seen:${day}`) * 78);
+  const reportedAt = vehicle.online ? world.now : world.now - lastSeenMin;
+
+  const swap = activeSwap(world, route);
+  const progress = shiftProgress(reportedAt);
+  const handover = swap ? shiftProgress(swap.at) : 0;
+  const driven = fresh ? 0 : Math.max(0, progress - handover);
+  const routeDone = fresh ? shiftProgress(world.now) : progress;
+  const kmRemaining = route.km * (1 - routeDone);
+
+  const burn = 0.92 + hash01(`${vehicle.vin}:${route.id}:${day}`) * 0.4;
+  const packVolts = Math.max(42, morningVolts(vehicle.vin, day) - driven * route.km * VOLTS_PER_KM * burn);
+  const tempC = 9 + hash01(`temp:${day}`) * 11;
+
+  const capabilities = resolveCapabilities(vehicle);
+  const hal = createHal({
+    hardware: HARDWARE[vehicle.hardwareRev],
+    supplier: vehicle.supplier,
+    plant: { packVolts, tempC, payloadKg: route.payloadKg },
+  });
+  const { estimate, payload } = runRangeApp(hal, {
+    gradePct: route.gradePct,
+    stopsPerKm: route.stopsPerKm,
+    useCargoSensor: capabilities.active.includes('load-aware-range'),
+  });
+
+  return {
+    kmRemaining,
+    routeDone,
+    lastSeenMin,
+    estimate,
+    payload,
+    raw: hal.rawBattery(),
+    reading: hal.read('battery'),
+    capabilities,
+    claim: routeClaim(estimate, kmRemaining, POLICY),
+  };
+}
+
+function statusOf(vehicle, facts) {
+  if (vehicle.faulted) return 'OUT_OF_SERVICE';
+  if (!facts.capabilities.active.includes('range-forecast')) return 'NO_FORECAST';
+  if (facts.claim.status === 'WONT_FINISH') return 'WONT_FINISH';
+  if (facts.claim.status === 'AT_RISK') return 'AT_RISK';
+  return vehicle.online ? 'ON_TRACK' : 'UNCONFIRMED';
+}
+
+function rowFor(world, route) {
+  const vehicle = vehicleFor(world, route);
+  const facts = evaluate(world, vehicle, route);
+  return { route, vehicle, ...facts, status: statusOf(vehicle, facts), swapped: Boolean(activeSwap(world, route)) };
+}
+
+export function availableSpares(world) {
+  const assigned = new Set(ROUTES.map((route) => vehicleFor(world, route).vin));
+  const released = new Set(ROUTES.filter((route) => activeSwap(world, route)).map((route) => defaultVehicle(world, route).vin));
+  return world.fleet.filter((v) => !assigned.has(v.vin) && !released.has(v.vin) && !v.faulted && v.online);
+}
+
+const WHY = {
+  OUT_OF_SERVICE: (row) => `${row.vehicle.vin} has a fault and shouldn’t run this route.`,
+  WONT_FINISH: (row) => `Even the best case falls short of the ${row.kmRemaining.toFixed(0)} km left.`,
+  AT_RISK: (row) => `The cautious range is ${cautiousKm(row).toFixed(0)} km, and ${row.kmRemaining.toFixed(0)} km are left.`,
+};
+
+export const cautiousKm = (row) => Math.max(0, row.estimate.rangeKm.interval.p10 - POLICY.reserveKm);
+
+export function explain(row) {
+  if (WHY[row.status]) return WHY[row.status](row);
+  if (row.status === 'NO_FORECAST') return 'Route forecasting isn’t turned on for this vehicle.';
+  if (row.status === 'UNCONFIRMED') return `Looked fine ${row.lastSeenMin} minutes ago, but this can’t be confirmed until it reconnects.`;
+  return `The cautious range of ${cautiousKm(row).toFixed(0)} km covers the ${row.kmRemaining.toFixed(0)} km left.`;
+}
+
+export function operationsView(world) {
+  const rows = ROUTES.map((route) => rowFor(world, route));
+  const counts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, rows.filter((r) => r.status === key).length]));
+
+  const actions = rows
+    .filter((row) => ['OUT_OF_SERVICE', 'WONT_FINISH', 'AT_RISK'].includes(row.status))
+    .sort((a, b) => STATUS[a.status].rank - STATUS[b.status].rank || a.route.index - b.route.index);
+
+  // A spare can only be recommended once, so two decisions never promise the same vehicle.
+  const promised = new Set();
+  const decisions = actions.map((row) => {
+    const candidates = availableSpares(world).filter((v) => !promised.has(v.vin));
+    const spare = bestSpare(world, row.route, candidates);
+    if (spare) promised.add(spare.vin);
+    return { row, spare, why: explain(row) };
+  });
+
+  return {
+    phase: isOnShift(world.now) ? 'shift' : 'planning',
+    rows,
+    counts,
+    decisions,
+    needsDecision: actions.length,
+    faulted: rows.filter((row) => row.vehicle.faulted).length,
+    spares: availableSpares(world),
+  };
+}
+
+function bestSpare(world, route, candidates) {
+  const ranked = candidates
+    .map((vehicle) => ({ vehicle, facts: evaluate(world, vehicle, route, { fresh: true }) }))
+    .filter(({ facts }) => facts.claim.status === 'WILL_FINISH')
+    .sort((a, b) => b.facts.estimate.rangeKm.interval.p10 - a.facts.estimate.rangeKm.interval.p10);
+  return ranked[0]?.vehicle ?? null;
+}
+
+export function swapVehicle(world, routeId, vin) {
+  const route = ROUTES.find((r) => r.id === routeId);
+  if (!route) throw new Error(`Unknown route ${routeId}`);
+  if (!availableSpares(world).some((v) => v.vin === vin)) throw new Error(`${vin} isn’t available as a spare`);
+  world.swaps[routeId] = { vin, at: world.now, day: planningDay(world.now) };
+}
+
+export function undoSwap(world, routeId) {
+  delete world.swaps[routeId];
+}
+
+export function routeRow(world, routeId) {
+  return rowFor(world, ROUTES.find((r) => r.id === routeId));
+}
+
+export const supplierLabel = (vehicle) => BATTERY_SUPPLIERS[vehicle.supplier].label;

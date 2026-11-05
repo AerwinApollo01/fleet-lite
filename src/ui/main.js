@@ -5,9 +5,13 @@ import { mountRevocation } from './revocation.js';
 import { mountOta } from './ota.js';
 import { mountRange } from './range.js';
 import { mountVehicle } from './vehicle.js';
+import { mountOperator } from './operator.js';
+import { mountArchitecture } from './architecture.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 
 const TABS = [
+  { id: 'operator', label: 'Operator', mount: mountOperator },
+  { id: 'architecture', label: 'Architecture', mount: mountArchitecture },
   { id: 'vehicle', label: 'Vehicle', mount: mountVehicle },
   { id: 'transfer', label: 'Transfer', mount: mountTransfer },
   { id: 'revocation', label: 'Revocation', mount: mountRevocation },

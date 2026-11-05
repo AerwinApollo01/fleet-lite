@@ -25,14 +25,16 @@ npm test
 
 | Tab | What it shows | Requirements |
 |---|---|---|
+| Operator | The fleet owner's day: one headline, a decision queue, and every route | R20–R22 |
+| Architecture | The whole system as a live map, with traces through each layer | R20 |
 | Vehicle | Runtime capability, hardware abstraction, and a software-defined scorecard | R13–R17 |
 | Transfer | Moving a vehicle between operators while it's offline | R1–R4 |
 | Revocation | Revoking driver access, online and offline | R5–R6 |
 | OTA rollout | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
 | Range | Measured vs. modeled values, and the customer-facing claim | R10–R11 |
 
-R12 (location retention) is tested in the core and has no tab. The Vehicle and OTA tabs share
-one fleet of 60 vehicles.
+R12 (location retention) is tested in the core and has no tab. The Operator, Architecture,
+Vehicle, and OTA tabs share one fleet of 60 vehicles.
 
 ## Layout
 
@@ -56,8 +58,10 @@ running something to pass.
 
 ## Not done
 
-- **Only the Vehicle and OTA tabs share a fleet.** Transfer, Revocation, and Range are still
-  their own scripted worlds.
+- **Transfer, Revocation, and Range are still their own scripted worlds.** They don't share
+  the fleet.
+- **Routes, charge levels, and loads are simulated.** The map is a schematic, not GPS, and
+  driver names are invented.
 - **A deploy is a list entry.** Rollouts go through the gates and the twin, but nothing is
   packaged, signed, or transferred.
 - **Faulted features still count as active.** A fault feeds the gate, but the resolver doesn't

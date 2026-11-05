@@ -6,6 +6,7 @@ export function h(tag, attrs = {}, ...children) {
     else if (key === 'class') node.className = value;
     else if (key === 'value') node.value = value;
     else if (key === 'checked') node.checked = value;
+    else if (key === 'selected') node.selected = value;
     else node.setAttribute(key, value === true ? '' : value);
   }
   for (const child of children.flat()) {

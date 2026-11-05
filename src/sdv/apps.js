@@ -3,9 +3,10 @@ import { estimateRange, measured, modeled } from '../core/range.js';
 
 export const ASSUMED_PAYLOAD_KG = 100;
 
-export function runRangeApp(hal, { gradePct, stopsPerKm }) {
+// Owning the sensor isn't enough: load-aware range is a feature, so the caller says if it's on.
+export function runRangeApp(hal, { gradePct, stopsPerKm, useCargoSensor = true }) {
   const { packVolts, tempC } = hal.read('battery');
-  const sensed = hal.has('cargo-load');
+  const sensed = useCargoSensor && hal.has('cargo-load');
   const payloadKg = sensed ? hal.read('cargo-load').payloadKg : ASSUMED_PAYLOAD_KG;
 
   return {

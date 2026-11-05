@@ -96,7 +96,7 @@ feature stops at the canary and rolls back through the twin (R19).
 and need a connected vehicle. An open alert never repeats, and "Not useful" mutes it for the
 day. The headline measure is the share of closed alerts that led to action.
 **Why.** Someone running dozens of routes mutes anything that cries wolf twice, so a precise
-alert nobody trusts is worth nothing. The queue on the Operator screen always shows every
+alert nobody trusts is worth nothing. The queue on the Today screen always shows every
 problem, so holding an alert back delays an interruption, not the information.
 **Cost.** A real problem can take up to an hour to interrupt anyone.
 **Revisit if.** The action rate stays high and people say they heard about problems too late.
@@ -104,7 +104,8 @@ problem, so holding an alert back delays an interruption, not the information.
 
 ## AD-8 · Roles are enforced in the logic, and surfaces stay separate
 
-**Decision.** A role decides which screens exist and what actions are allowed. Actions are
+**Decision.** The app is organized by persona: owner, dispatcher, technician, and engineer. A
+persona decides which screens exist and what actions are allowed. Actions are
 checked in the logic, not only hidden in the UI. Customers never see the engineering views, and
 the service view carries no driver or location data.
 **Why.** Internal users debug the system and customers depend on it, so they need different
@@ -143,5 +144,5 @@ surfaces. Giving each role only what its job needs is also the simplest privacy 
 ## The test for all of this
 
 If the cloud disappeared for a year, the vehicle should keep working on its last known good
-state, and the product should stop changing. The Vehicle tab computes that from real state,
+state, and the product should stop changing. The Vehicle software screen computes that from real state,
 along with the rest of the scorecard.

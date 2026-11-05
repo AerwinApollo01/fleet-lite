@@ -100,7 +100,7 @@ export function mountArchitecture(root, { world, goTo }) {
     root.replaceChildren(
       h('div', { class: 'intro' },
         h('h2', {}, 'How the system fits together'),
-        h('p', {}, 'Every value below is live from the same fleet as the Operator screen. Pick a path to follow it through the layers.'),
+        h('p', {}, 'Every value below is live from the same fleet as the Today screen. Pick a path to follow it through the layers.'),
       ),
       h('div', { class: 'toolbar' },
         h('span', { class: 'label inline' }, 'Follow'),
@@ -112,7 +112,7 @@ export function mountArchitecture(root, { world, goTo }) {
         h('label', { class: 'inline-field' }, h('span', { class: 'label inline' }, 'Route'),
           h('select', { onChange: (event) => { world.traceRoute = event.target.value; render(); } },
             ROUTES.map((r) => h('option', { value: r.id, selected: r.id === routeId }, `${r.id} · ${r.driver}`)))),
-        h('button', { class: 'end-btn', onClick: () => goTo('operator') }, '← Back to Operator'),
+        h('button', { class: 'end-btn', onClick: () => goTo('operator') }, '← Back to Today'),
       ),
       canvas,
       panel(`${trace.label}: ${routeId}`,

@@ -1,10 +1,40 @@
 // The customer surface and the internal surface share a pipeline and little else. A role
 // decides which screens exist for you and, separately, what you're allowed to do.
+export const SCREENS = {
+  operator: 'Today',
+  alerts: 'Alerts',
+  maintenance: 'Maintenance',
+  reports: 'Reports',
+  learn: 'Learn',
+  architecture: 'System map',
+  vehicle: 'Vehicle software',
+  ota: 'Software rollouts',
+  transfer: 'Ownership transfer',
+  revocation: 'Driver access',
+  range: 'Range model',
+};
+
+function persona(label, short, summary, groups) {
+  const all = [...groups, { label: 'Help', tabs: ['learn'] }];
+  return { label, short, summary, groups: all, tabs: all.flatMap((group) => group.tabs) };
+}
+
 export const ROLES = {
-  engineer: { label: 'Platform engineer', tabs: ['operator', 'alerts', 'maintenance', 'reports', 'learn', 'architecture', 'vehicle', 'transfer', 'revocation', 'ota', 'range'] },
-  owner: { label: 'Fleet owner', tabs: ['operator', 'alerts', 'maintenance', 'reports', 'learn'] },
-  dispatcher: { label: 'Dispatcher', tabs: ['operator', 'alerts', 'learn'] },
-  technician: { label: 'Service technician', tabs: ['maintenance', 'learn'] },
+  owner: persona('Fleet owner', 'Owner', 'You run the business. Are we meeting commitments, and is the fleet healthy?', [
+    { label: 'Run the fleet', tabs: ['operator', 'alerts', 'maintenance', 'reports'] },
+  ]),
+  dispatcher: persona('Dispatcher', 'Dispatcher', 'You keep today’s routes moving, and act when one is in trouble.', [
+    { label: 'Today’s work', tabs: ['operator', 'alerts'] },
+  ]),
+  technician: persona('Service technician', 'Technician', 'You keep vehicles ready. You see vehicles and work, not drivers.', [
+    { label: 'Service', tabs: ['maintenance'] },
+  ]),
+  engineer: persona('Platform engineer', 'Engineer', 'You build the platform and support customers. You can see every layer.', [
+    { label: 'Data and system', tabs: ['architecture', 'range'] },
+    { label: 'Ship software', tabs: ['ota', 'vehicle'] },
+    { label: 'Identity and access', tabs: ['transfer', 'revocation'] },
+    { label: 'What customers see', tabs: ['operator', 'alerts', 'maintenance', 'reports'] },
+  ]),
 };
 
 const ACTIONS = {

@@ -1,17 +1,12 @@
 import { CATEGORIES, GLOSSARY, LESSONS, searchGlossary } from '../data/learn.js';
-import { roleOf, ROLES } from '../core/roles.js';
+import { roleOf, ROLES, SCREENS } from '../core/roles.js';
 import { h, panel } from './dom.js';
-
-const TAB_LABELS = {
-  operator: 'Operator', alerts: 'Alerts', maintenance: 'Maintenance', reports: 'Reports', architecture: 'Architecture',
-  vehicle: 'Vehicle', ota: 'OTA rollout', transfer: 'Transfer', revocation: 'Revocation', range: 'Range',
-};
 
 const ui = { view: 'glossary', query: '', category: 'All' };
 
 export function mountLearn(root, { world, goTo }) {
   const seeLink = (tab) => (tab && ROLES[roleOf(world)].tabs.includes(tab)
-    ? h('button', { class: 'link', onClick: () => goTo(tab) }, `Open ${TAB_LABELS[tab]} →`)
+    ? h('button', { class: 'link', onClick: () => goTo(tab) }, `Open ${SCREENS[tab]} →`)
     : null);
 
   function entryCard(entry) {

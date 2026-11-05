@@ -68,7 +68,7 @@ export function nodeStats(world) {
     entitlement: `${fleet.reduce((sum, v) => sum + v.reported.entitled.length, 0)} active grants`,
     rollout: world.campaign ? `${world.rollout.label}: ${rolloutActive(world) ? 'in progress' : 'finished'}` : 'None running',
     model: `Policy owner: ${POLICY.owner}`,
-    operator: `${view.needsDecision} decisions waiting`,
+    operator: `${view.needsDecision} decision${view.needsDecision === 1 ? '' : 's'} waiting`,
     alerts: `${alertSummary(world).open.length} open, ${world.heldBack} held back`,
     records: `${world.reports.length} closed day${world.reports.length === 1 ? '' : 's'}, ${maintenanceView(world).work.length} items due`,
     service: `${maintenanceView(world).scheduled.length} work orders open`,

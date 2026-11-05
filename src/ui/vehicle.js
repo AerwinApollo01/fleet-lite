@@ -34,7 +34,7 @@ function segmented(label, options, current, onPick) {
     }, text)));
 }
 
-// Outlives the tab, so moving to the OTA tab and back keeps the same vehicle in view.
+// Outlives the tab, so moving to Software rollouts and back keeps the same vehicle in view.
 const selection = { hardwareRev: 'lean', supplier: 'alpha' };
 
 export function mountVehicle(root, { world, goTo }) {
@@ -177,7 +177,7 @@ export function mountVehicle(root, { world, goTo }) {
             h('button', { onClick: () => change({ config: { 'brakes.response': 1 } }) }, 'Try to change')],
         ]),
       ),
-      h('p', { class: 'muted small' }, 'This is the same fleet as the OTA rollout tab. All hardware figures are assumptions.'),
+      h('p', { class: 'muted small' }, 'This is the same fleet as Software rollouts. All hardware figures are assumptions.'),
     ];
     root.replaceChildren(...sections.filter(Boolean));
   }

@@ -1,5 +1,5 @@
 // The operator's day, computed from the shared fleet. Routes, charge levels, and loads are
-// simulated. Every claim on the Operator screen comes through the real HAL, range model,
+// simulated. Every claim on the Today screen comes through the real HAL, range model,
 // and claim policy, so the screen can't drift from the architecture underneath it.
 import { isOnShift, SHIFT } from '../core/ota.js';
 import { hash01 } from '../core/rng.js';

@@ -202,6 +202,13 @@ undone swap leaves no record. Future times are refused.
 Felt: people see the tools for their job and nothing else.
 Test: each role has a limited surface. Blocked actions throw when called directly.
 
+### Navigation
+
+**R30 · You start from who you are, not from a list of features.**
+Felt: each person sees a short list of screens for their job, in plain language.
+Test: every persona has a summary and grouped screens, each with a label. Engineering screens
+appear only for the engineer. Each view has its own address.
+
 ### Learning
 
 **R29 · The app teaches its own vocabulary.**

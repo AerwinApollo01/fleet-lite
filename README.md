@@ -21,25 +21,35 @@ npm run dev
 npm test
 ```
 
-## The scenarios
+## Personas
 
-| Tab | What it shows | Requirements |
+The app opens as the fleet owner. Switch personas at the top, and each one gets only the screens
+for its job (R28, R30). Learn is available to everyone. Each view has its own link, such as
+`#dispatcher/alerts`.
+
+| Persona | Job | Screens |
 |---|---|---|
-| Operator | The fleet owner's day: one headline, a decision queue, and every route | R20–R22 |
+| Fleet owner | Run the business | Today, Alerts, Maintenance, Reports |
+| Dispatcher | Keep today's routes moving | Today, Alerts |
+| Service technician | Keep vehicles ready | Maintenance |
+| Platform engineer | Build and support the platform | All of them, grouped below |
+
+| Screen | What it shows | Requirements |
+|---|---|---|
+| Today | One headline, a decision queue, the map, and every route | R20–R23 |
 | Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
+| Software rollouts | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
+| Vehicle software | Runtime capability, hardware abstraction, and a scorecard | R13–R17 |
+| Ownership transfer | Moving a vehicle between operators while it's offline | R1–R4 |
+| Driver access | Revoking driver access, online and offline | R5–R6 |
+| Range model | Measured vs. modeled values, and the customer-facing claim | R10–R11 |
+| System map | The whole system as a live map, with traces through each layer | R20 |
 | Learn | A searchable glossary and lessons learned from this build | R29 |
-| Architecture | The whole system as a live map, with traces through each layer | R20 |
-| Vehicle | Runtime capability, hardware abstraction, and a software-defined scorecard | R13–R17 |
-| Transfer | Moving a vehicle between operators while it's offline | R1–R4 |
-| Revocation | Revoking driver access, online and offline | R5–R6 |
-| OTA rollout | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
-| Range | Measured vs. modeled values, and the customer-facing claim | R10–R11 |
 
-R12 (location retention) is tested in the core and has no tab. Screens depend on the role in
-"Viewing as" (R28), and the platform engineer sees all of them. Everything except Transfer,
-Revocation, and Range shares one fleet of 60 vehicles.
+R12 (location retention) is tested in the core and has no screen. Everything except Ownership
+transfer, Driver access, and Range model shares one fleet of 60 vehicles.
 
 ## Map data
 
@@ -80,11 +90,11 @@ running something to pass.
 
 - **Alerts stay in the app.** There's no email, SMS, or push.
 - **Closures are fixed.** You can turn the two sample closures on and off, but not draw new ones.
-- **Roles are a switcher, not a login.** The checks are real, but there's no authentication.
+- **Personas are a switcher, not a login.** The checks are real, but there's no authentication.
 - **Maintenance figures are assumptions.** Service intervals and wear are placeholders.
 - **No per-driver scoring.** That needs a real decision about worker monitoring first.
 
-- **Transfer, Revocation, and Range are still their own scripted worlds.** They don't share
+- **Ownership transfer, Driver access, and Range model are still their own scripted worlds.** They don't share
   the fleet.
 - **Street geometry is real, but operations are simulated.** Stops, charge levels, loads, and
   driver names are invented, and vehicles move by shift progress, not GPS.

@@ -18,7 +18,7 @@ const FILTERS = [
   ['swapped', 'Swapped', (r) => r.swapped],
 ];
 
-// Outlives the tab, so a selection survives a trip to the Architecture view and back.
+// Outlives the tab, so a selection survives a trip to the System map and back.
 const ui = { selected: null, filter: 'all', search: '' };
 
 export const selectRoute = (id) => { ui.selected = id; };

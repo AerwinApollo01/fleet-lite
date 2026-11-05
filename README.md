@@ -99,7 +99,7 @@ running something to pass.
 - **Street geometry is real, but operations are simulated.** Stops, charge levels, loads, and
   driver names are invented, and vehicles move by shift progress, not GPS.
 - **Routes use a car profile.** The public routing server only offers driving routes, so paths
-  may include streets a small delivery vehicle wouldn't use, and they ignore bike lanes.
+  may include streets a small delivery vehicle wouldn't use.
 - **A deploy is a list entry.** Rollouts go through the gates and the twin, but nothing is
   packaged, signed, or transferred.
 - **Faulted features still count as active.** A fault feeds the gate, but the resolver doesn't

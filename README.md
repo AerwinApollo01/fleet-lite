@@ -36,6 +36,21 @@ npm test
 R12 (location retention) is tested in the core and has no tab. The Operator, Architecture,
 Vehicle, and OTA tabs share one fleet of 60 vehicles.
 
+## Map data
+
+Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, available
+under the [ODbL](https://opendatacommons.org/licenses/odbl/). Map tiles come from
+[OpenFreeMap](https://openfreemap.org), © OpenMapTiles. Routes were generated with
+[OSRM](https://project-osrm.org) and saved in `src/data/la-routes.json`, which is derived from
+OpenStreetMap and stays under the ODbL. The map needs an internet connection for tiles. The
+routes don't, and every route is also in the table.
+
+To regenerate the routes, which makes about 60 requests to the public OSRM server:
+
+```bash
+npm run routes
+```
+
 ## Layout
 
 - `src/core` holds the logic, with no UI code: identity, telemetry, auth, OTA, range
@@ -60,8 +75,10 @@ running something to pass.
 
 - **Transfer, Revocation, and Range are still their own scripted worlds.** They don't share
   the fleet.
-- **Routes, charge levels, and loads are simulated.** The map is a schematic, not GPS, and
-  driver names are invented.
+- **Street geometry is real, but operations are simulated.** Stops, charge levels, loads, and
+  driver names are invented, and vehicles move by shift progress, not GPS.
+- **Routes use a car profile.** The public routing server only offers driving routes, so paths
+  may include streets a small delivery vehicle wouldn't use, and they ignore bike lanes.
 - **A deploy is a list entry.** Rollouts go through the gates and the twin, but nothing is
   packaged, signed, or transferred.
 - **Faulted features still count as active.** A fault feeds the gate, but the resolver doesn't

@@ -170,6 +170,12 @@ Felt: acting on a problem clears it.
 Test: swapping to a recommended spare resolves the decision. A spare is never offered twice,
 and a vehicle that was swapped out isn't offered again.
 
+**R23 · Routes are real streets, and the map shows what was last reported.**
+Felt: a dispatcher can read the map like the city they work in.
+Test: every route is a street-following loop from the depot, in central Los Angeles, with a
+named area. Distances match the routed geometry. An offline vehicle appears where it last
+reported, not where it should be by now.
+
 ---
 
 ## 4 · WHAT I'M NOT BUILDING, AND WHY

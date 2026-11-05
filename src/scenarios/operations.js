@@ -5,6 +5,8 @@ import { isOnShift, SHIFT } from '../core/ota.js';
 import { hash01 } from '../core/rng.js';
 import { createClaimPolicy, routeClaim } from '../core/range.js';
 import { DAY, HOUR } from '../core/time.js';
+import { pointAlong } from '../core/geo.js';
+import routeData from '../data/la-routes.json';
 import { runRangeApp } from '../sdv/apps.js';
 import { BATTERY_SUPPLIERS, createHal } from '../sdv/hal.js';
 import { HARDWARE } from '../sdv/hardware.js';
@@ -27,21 +29,17 @@ const VOLTS_PER_KM = 0.3;
 
 const isSpareSlot = (index) => index % 10 === 9;
 
-export const ROUTES = Array.from({ length: 54 }, (_, i) => {
-  const id = `R-${String(i + 1).padStart(2, '0')}`;
-  const angle = (i / 54) * Math.PI * 2 + hash01(`${id}:a`) * 0.1;
-  const reach = 0.5 + hash01(`${id}:r`) * 0.5;
-  return {
-    id,
-    index: i,
-    driver: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`,
-    km: Math.round(13 + hash01(`${id}:km`) * 14),
-    payloadKg: Math.round(70 + hash01(`${id}:kg`) * 120),
-    gradePct: Math.round(hash01(`${id}:g`) * 4) / 2,
-    stopsPerKm: Math.round((2 + hash01(`${id}:s`) * 2.5) * 2) / 2,
-    end: { x: 320 + Math.cos(angle) * 290 * reach, y: 180 + Math.sin(angle) * 160 * reach },
-  };
-});
+export const DEPOT = routeData.depot;
+
+// Street geometry and distance are real. Drivers, loads, and stop density are simulated.
+export const ROUTES = routeData.routes.map((route, i) => ({
+  ...route,
+  index: i,
+  driver: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length) % LAST.length]}`,
+  payloadKg: Math.round(70 + hash01(`${route.id}:kg`) * 120),
+  gradePct: Math.round(hash01(`${route.id}:g`) * 2) / 2,
+  stopsPerKm: Math.round((1.5 + hash01(`${route.id}:s`) * 1.5) * 2) / 2,
+}));
 
 function shiftProgress(now) {
   if (!isOnShift(now)) return 0;
@@ -74,7 +72,7 @@ export function vehicleFor(world, route) {
 function morningVolts(vin, day) {
   const undercharged = hash01(`${vin}:low:${day}`) < 0.08;
   const spread = hash01(`${vin}:charge:${day}`);
-  return undercharged ? 46.8 + spread * 1.8 : 51.6 + spread * 3;
+  return undercharged ? 47.5 + spread * 2 : 52.8 + spread * 1.8;
 }
 
 // One vehicle on one route, at one moment. `fresh` means it hasn't driven any of it yet.
@@ -109,6 +107,7 @@ function evaluate(world, vehicle, route, { fresh = false } = {}) {
   return {
     kmRemaining,
     routeDone,
+    position: pointAlong(route.path, routeDone),
     lastSeenMin,
     estimate,
     payload,

@@ -216,6 +216,11 @@ Felt: someone new to the field can look up any term and see it working.
 Test: every glossary entry has a category and plain definition, terms are unique, and every link
 goes to a real screen. Every role can open Learn.
 
+**R31 · The guides teach how the technology works, in general terms.**
+Felt: someone can learn the mechanisms, then try them.
+Test: the decoder gets the worked examples right and rejects bad input. The power-cut simulator
+follows the real logic. Every guide has checks.
+
 ---
 
 ## 4 · WHAT I'M NOT BUILDING, AND WHY

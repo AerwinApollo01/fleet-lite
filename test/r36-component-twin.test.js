@@ -103,7 +103,7 @@ describe('R36 a vehicle can be read as a system', () => {
   it('a part can go on watch before any fault, then fail if ignored', () => {
     const world = createFleetWorld(500);
     const early = world.fleet.flatMap((v) => COMPONENTS.filter((c) => c.signal).map((c) => [v.vin, c.id]))
-      .find(([vin, id]) => { const part = partOf(world, vin, id); return part.state === 'watch' && part.openFaults === 0; });
+      .find(([vin, id]) => { const part = partOf(world, vin, id); return part.state === 'watch' && part.openFaults === 0 && /outside its normal range/.test(part.reason); });
     expect(early).toBeDefined();
     advanceFleet(world, 24 * 11);
     const later = partOf(world, ...early);
@@ -114,7 +114,7 @@ describe('R36 a vehicle can be read as a system', () => {
     const world = createFleetWorld(500);
     world.role = 'technician';
     const early = world.fleet.flatMap((v) => COMPONENTS.filter((c) => c.signal).map((c) => [v.vin, c.id]))
-      .find(([vin, id]) => { const part = partOf(world, vin, id); return part.state === 'watch' && part.openFaults === 0; });
+      .find(([vin, id]) => { const part = partOf(world, vin, id); return part.state === 'watch' && part.openFaults === 0 && /outside its normal range/.test(part.reason); });
     const failures = partOf(world, ...early).failures;
     scheduleRepair(world, ...early);
     completeService(world, world.serviceOrders.at(-1).id);

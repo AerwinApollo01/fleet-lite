@@ -248,6 +248,19 @@ retries, or leaves the part unable to start if there's no recovery path, until a
 failed health check returns two-slot parts to their old slots. Every one-slot version in a set works
 with every other tested set.
 
+**R40 · Every signal has an operating range, and a brief spike doesn't change anyone's status.**
+Felt: someone can see how close a part is to trouble, on both sides of normal.
+Test: every signal has bands, and some have limits on both sides. A reading outside normal changes a
+part's status only after three days. A later repair can't change past readings. A verdict comes from the
+same state as the list, and only a vehicle Today calls out of service gets that word.
+
+**R41 · The event log is append-only, and depth follows the persona.**
+Felt: an owner gets a plain answer, and a specialist can trace exactly what happened.
+Test: entries are frozen and never change, and a repair adds an entry. Each keeps event time and arrival
+time, and late ones are marked. Entries agree with the twin. Technicians see no route or alert entries,
+and only engineers receive raw frames, which decode back to the logged reading. Limits apply in the
+logic, not only on screen.
+
 ### Architecture choices
 
 **R34 · Architecture tradeoffs can be explored, not just described.**

@@ -32,8 +32,8 @@ export const ROLLOUTS = [
 
 // A firmware rollout moves every part to its version in the release set.
 const releaseApplier = {
-  install(campaign, vehicle) { applyRelease(vehicle, campaign.toVersion); return true; },
-  revert(campaign, vehicle) { applyRelease(vehicle, campaign.fromVersion); return true; },
+  install(campaign, vehicle, now) { applyRelease(vehicle, campaign.toVersion, now); return true; },
+  revert(campaign, vehicle, now) { applyRelease(vehicle, campaign.fromVersion, now); return true; },
   needsRevert: versionApplier.needsRevert,
 };
 
@@ -50,11 +50,11 @@ export function createFleetWorld(count = 60) {
     faulted: false,
     pinnedOffline: false,
   }));
-  for (const vehicle of fleet) vehicle.firmware = createFirmware(vehicle, FACTORY_VERSION);
+  for (const vehicle of fleet) Object.assign(vehicle, { firmware: createFirmware(vehicle, FACTORY_VERSION), firmwareHistory: [] });
   const now = at(1, 10);
   applyConnectivity(fleet, now);
   const world = {
-    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [], updates: {}, firmwareLog: [],
+    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [], updates: {}, firmwareLog: [], eventLogs: {},
     ...createPackState(fleet, now),
     ...createAlertState(),
     ...createReportState(),

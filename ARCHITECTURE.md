@@ -154,6 +154,19 @@ those interfaces can change.
 **Revisit if.** Hardware gives every part two slots, or the patch list grows until the sets mean nothing.
 **Test.** Untested combinations are refused, and a failed switch leaves a tested combination (R39).
 
+## AD-12 · One record per event, shown at the depth each persona needs
+
+**Decision.** Operating ranges live with each signal. Status, verdicts, graphs, and log entries are all
+worked out from those ranges and the same events. The log is append-only, and a role decides what
+comes back from it. Owners start from a verdict, technicians from readings, and engineers can reach
+raw frames.
+**Why.** Separate views of the same data drift apart, and then nobody trusts any of them. Different
+people still need different depth, so that's a matter of presentation and permission, not of data.
+**Cost.** Keeping every entry grows storage forever, and frozen entries can't be fixed, only corrected.
+Ranges need owners, because a wrong range misleads every view at once.
+**Revisit if.** Tolerances need to vary by mode, such as driving and charging, or retention needs limits.
+**Test.** Entries can't change, the log agrees with the twin, and role limits hold in the logic (R40–R41).
+
 ---
 
 ## Decisions already in place
@@ -165,6 +178,7 @@ those interfaces can change.
 | Driver access uses short leases cached on the vehicle | `core/auth.js` | R5, R6 |
 | Silence never passes a rollout gate | `core/ota.js` | R8 |
 | The swap log is append-only, so an undo is a new entry | `scenarios/operations.js` | R27 |
+| Each vehicle's event log is append-only | `scenarios/eventlog.js` | R41 |
 | Every number carries measured or modeled provenance | `core/range.js` | R10 |
 
 ---

@@ -8,7 +8,7 @@ import { restoreFirmware } from './firmware.js';
 import { packFor, packHealth } from './packs.js';
 
 export const DAILY_KM = 22;
-const DUE_SOON_KM = 300;
+export const DUE_SOON_KM = 300;
 
 export const ITEMS = [
   { id: 'service', label: 'Scheduled service', intervalKm: 3000 },

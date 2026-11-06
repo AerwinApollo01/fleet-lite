@@ -1,22 +1,61 @@
 // Small charts shared by the vehicle and fleet views.
+import { bandStatus } from '../scenarios/components.js';
 import { badge, h } from './dom.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 
+const unitText = (unit) => (unit === '%' || unit === '°C' ? unit : unit ? ` ${unit}` : '');
+const defined = (...values) => values.filter((value) => value !== undefined);
+const STATUS_TEXT = { normal: '✓ In its normal range', caution: '! Outside its normal range', limit: '✕ At its limit' };
+
+export function toleranceText({ bands: { min, low, high, max }, unit }) {
+  const u = unitText(unit);
+  const normal = low !== undefined && high !== undefined ? `${low}–${high}${u}` : high !== undefined ? `up to ${high}${u}` : `${low}${u} and above`;
+  const limits = defined(min, max).map((value) => `${value}${u}`).join(' and ');
+  return `Normal ${normal}. ${defined(min, max).length > 1 ? 'Limits' : 'Limit'} ${limits}.`;
+}
+
+// The visible range, wide enough for every band and every reading, with a little room around them.
+function domain(signal, values, { gauge = false } = {}) {
+  const { min, low, high, max } = signal.bands;
+  // A one-sided gauge still needs its normal zone, so it runs to the far end of the scale.
+  const lo = Math.min(...values, ...defined(min, low), ...(gauge && min === undefined && low === undefined ? [0] : []));
+  const hi = Math.max(...values, ...defined(high, max), ...(gauge && high === undefined && max === undefined ? [100] : []));
+  const pad = (hi - lo || 1) * 0.08;
+  return [lo - pad, hi + pad];
+}
+
+// A simple gauge: where the reading sits against the part's operating range.
+export function rangeBar(signal, { numbers = false } = {}) {
+  const [lo, hi] = domain(signal, [signal.value], { gauge: true });
+  const { min, low, high, max } = signal.bands;
+  const edges = [lo, ...defined(min, low, high, max), hi];
+  const share = (value) => ((value - lo) / (hi - lo)) * 100;
+  const zones = edges.slice(1).map((edge, i) => {
+    const middle = (edges[i] + edge) / 2;
+    return h('i', { class: `zone ${bandStatus(middle, signal.bands)}`, style: `width:${share(edge) - share(edges[i])}%` });
+  });
+  return h('div', { class: 'range' },
+    h('div', { class: 'range-head' }, h('span', {}, signal.label), numbers && h('strong', {}, `${signal.value}${unitText(signal.unit)}`)),
+    h('div', { class: 'range-bar', role: 'img', 'aria-label': `${signal.label}: ${STATUS_TEXT[signal.status]}` }, zones, h('b', { style: `left:${share(signal.value)}%` })),
+    h('p', { class: `range-note ${signal.status}` }, STATUS_TEXT[signal.status]),
+  );
+}
+
 export function sparkline(signal) {
   const [W, H, PAD] = [320, 96, 6];
   const values = signal.points.map((p) => p.value);
-  const lo = Math.min(...values, signal.limit);
-  const hi = Math.max(...values, signal.limit);
-  const span = hi - lo || 1;
+  const [lo, hi] = domain(signal, values);
   const x = (i) => PAD + (i / (values.length - 1)) * (W - PAD * 2);
-  const y = (v) => H - PAD - ((v - lo) / span) * (H - PAD * 2);
-  const unit = signal.unit === '%' || signal.unit === '°C' ? signal.unit : signal.unit ? ` ${signal.unit}` : '';
+  const y = (v) => H - PAD - ((v - lo) / (hi - lo)) * (H - PAD * 2);
+  const unit = unitText(signal.unit);
+  const { min, low, high, max } = signal.bands;
+  const zone = (from, to, tone) => (from === undefined || to === undefined ? '' : `<rect class="spark-zone ${tone}" x="${PAD}" width="${W - PAD * 2}" y="${Math.min(y(from), y(to))}" height="${Math.abs(y(from) - y(to))}"/>`);
   const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
   const chart = h('div', { class: 'spark' });
   const tip = h('div', { class: 'chart-tip', hidden: true });
-  chart.innerHTML = `<svg xmlns="${SVG}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${signal.label} over 30 days, now ${values.at(-1)}${unit}, limit ${signal.limit}${unit}">
-    <line class="spark-limit" x1="${PAD}" x2="${W - PAD}" y1="${y(signal.limit)}" y2="${y(signal.limit)}"/>
+  chart.innerHTML = `<svg xmlns="${SVG}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${signal.label} over 30 days, now ${values.at(-1)}${unit}. ${toleranceText(signal)}">
+    ${zone(high, max ?? hi, 'caution')}${zone(max, max === undefined ? undefined : hi, 'limit')}${zone(low, min ?? lo, 'caution')}${zone(min, min === undefined ? undefined : lo, 'limit')}
     <path class="spark-line" d="${line}"/>
     <circle class="spark-end" cx="${x(values.length - 1)}" cy="${y(values.at(-1))}" r="4"/>
     <circle class="spark-hover" r="4" hidden/>
@@ -41,7 +80,8 @@ export function sparkline(signal) {
       h('span', {}, signal.label, ' ', badge(signal.provenance === 'measured' ? 'Measured' : 'Estimate', signal.provenance === 'measured' ? 'neutral' : 'warn')),
       h('strong', {}, `${values.at(-1)}${unit}`)),
     chart,
-    h('div', { class: 'spark-axis muted' }, h('span', {}, '30 days ago'), h('span', {}, `Dashed line: ${signal.lowerIsWorse ? 'replace at' : 'limit'} ${signal.limit}${unit}`), h('span', {}, 'Latest')),
+    h('div', { class: 'spark-axis muted' }, h('span', {}, '30 days ago'), h('span', {}, 'Latest')),
+    h('p', { class: 'muted small spark-tol' }, toleranceText(signal)),
   );
 }
 

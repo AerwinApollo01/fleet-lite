@@ -54,6 +54,7 @@ const REQUIRES = [
   { part: 'inverter', from: '4.1.0', needs: 'vcu', min: '1.5.0' },
 ];
 
+const FACTORY_RELEASE = '1.4.2';
 const targetById = (id) => TARGETS.find((target) => target.id === id);
 const fitted = (vehicle, target) => !target.capability || HARDWARE[vehicle.hardwareRev].capabilities.includes(target.capability);
 const pickVersion = (value, vehicle) => (typeof value === 'string' ? value : value[vehicle.supplier]);
@@ -75,7 +76,7 @@ export function createFirmware(vehicle, releaseId) {
 }
 
 // What a fleet campaign does when it reaches a vehicle.
-export function applyRelease(vehicle, releaseId) {
+export function applyRelease(vehicle, releaseId, now = 0) {
   for (const target of fittedTargets(vehicle)) {
     const record = vehicle.firmware[target.id];
     const version = releaseVersion(releaseId, target.id, vehicle);
@@ -84,10 +85,14 @@ export function applyRelease(vehicle, releaseId) {
     Object.assign(record, { version, state: 'ok' });
   }
   vehicle.version = releaseId;
+  vehicle.firmwareHistory.push({ at: now, label: releaseId });
 }
 
 const matchesRelease = (vehicle) => fittedTargets(vehicle)
   .every((target) => vehicle.firmware[target.id].version === releaseVersion(vehicle.version, target.id, vehicle));
+
+// What the vehicle was running at a moment in the past, for the event log.
+export const firmwareAt = (vehicle, t) => vehicle.firmwareHistory.filter((entry) => entry.at <= t).at(-1)?.label ?? FACTORY_RELEASE;
 
 export const releaseLabel = (vehicle) => (matchesRelease(vehicle) ? vehicle.version : `${vehicle.version} (mixed)`);
 
@@ -175,6 +180,8 @@ export function startUpdate(world, vin, targetId, problem = null) {
 
 function finish(world, job, status, result) {
   Object.assign(job, { status, result });
+  const vehicle = world.fleet.find((v) => v.vin === job.vin);
+  vehicle.firmwareHistory.push({ at: world.now, label: releaseLabel(vehicle) });
   record(world, job, result);
 }
 

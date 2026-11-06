@@ -1,7 +1,7 @@
 // One vehicle as a system: the parts, how they connect, and what each one is telling us.
 import { can, roleOf } from '../core/roles.js';
-import { formatTime } from '../core/time.js';
-import { assetHistory, swapPack } from '../scenarios/assets.js';
+import { swapPack } from '../scenarios/assets.js';
+import { eventLogFor } from '../scenarios/eventlog.js';
 import { componentReliability, scheduleRepair, STATE, SYSTEMS, vehicleTwin } from '../scenarios/components.js';
 import { advanceFleet } from '../scenarios/fleet.js';
 import { completeService } from '../scenarios/maintenance.js';
@@ -9,14 +9,19 @@ import { readyPacks } from '../scenarios/packs.js';
 import { badge, h } from './dom.js';
 import { firmwarePanels } from './firmware.js';
 import { schematic } from './schematic.js';
-import { sparkline } from './charts.js';
+import { rangeBar, sparkline } from './charts.js';
+import { eventLogPanel, logTime } from './eventlog.js';
 import { CONDITION, listNeighbors } from './assets.js';
 
 const STATE_BADGE = { fault: ['✕ Fault', 'bad'], watch: ['! Watch', 'warn'], ok: ['✓ Healthy', 'good'], absent: ['Not fitted', 'neutral'] };
 const km = (value) => `${value.toLocaleString('en-US')} km`;
 
 export function mountTwin(root, { world, vin, component, openAsset, closeAsset, setComponent }) {
-  let tab = component === 'firmware' ? 'firmware' : 'parts';
+  let tab = ['firmware', 'log'].includes(component) ? component : 'parts';
+  // The persona sets the starting depth. An owner can look deeper, but never at raw frames.
+  const canToggle = roleOf(world) === 'owner';
+  let depth = canToggle ? 'summary' : 'detail';
+  const logUi = { part: '', kind: '', severity: '', search: '', page: 1, open: null };
   let selected = tab === 'parts' ? component : null;
   let layer = 'All';
   let tierLayer = 'All';
@@ -66,21 +71,42 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
     )));
   }
 
+  function recentEvents(part) {
+    const entries = eventLogFor(world, vin, roleOf(world)).filter((entry) => entry.part === part.id);
+    const see = () => { Object.assign(logUi, { part: part.id, kind: '', severity: '', search: '', page: 1, open: null }); showTab('log'); };
+    return h('div', {},
+      h('p', { class: 'label' }, 'Recent events'),
+      entries.length
+        ? h('ol', { class: 'timeline compact' }, entries.slice(0, 3).map((entry) => h('li', {}, h('span', { class: 'muted' }, logTime(entry.at)), h('p', {}, entry.text))))
+        : h('p', { class: 'muted' }, 'Nothing recorded.'),
+      entries.length > 0 && h('button', { class: 'link', onClick: see }, `See all ${entries.length} in the event log`),
+    );
+  }
+
   function drawInspector(twin) {
     const part = twin.components.find((c) => c.id === selected);
+    const fitted = part.state !== 'absent';
+    const summary = depth === 'summary';
     inspector.replaceChildren(...[
       h('div', { class: 'tw-inspector-head' }, h('h3', {}, part.label), badge(...STATE_BADGE[part.state])),
+      fitted && h('p', { class: `verdict ${part.verdict.level}` }, h('strong', {}, part.verdict.label), `. ${part.verdict.action}`),
       h('p', { class: 'muted' }, part.does),
-      part.state !== 'ok' && h('p', { class: 'tw-reason' }, part.reason),
-      part.state !== 'absent' && actions(part, twin),
-      part.packId && h('p', { class: 'muted small' }, `Installed pack: ${part.packId}`),
-      part.signal && sparkline(part.signal),
-      part.state !== 'absent' && h('p', { class: 'label' }, 'Fault history'),
-      part.state !== 'absent' && faultList(part),
-      part.state !== 'absent' && reliability(part, twin),
+      part.state !== 'ok' && h('p', { class: 'tw-reason' }, summary ? part.plain : part.reason),
+      fitted && actions(part, twin),
+      ...(summary
+        ? part.signals.map((signal) => rangeBar(signal))
+        : [
+            part.packId && h('p', { class: 'muted small' }, `Installed pack: ${part.packId}`),
+            ...part.signals.map((signal) => sparkline(signal)),
+            fitted && h('p', { class: 'label' }, 'Fault history'),
+            fitted && faultList(part),
+            fitted && reliability(part, twin),
+          ]),
+      fitted && recentEvents(part),
       part.dependents.length > 0 && h('div', {},
         h('p', { class: 'label' }, 'If this part fails, these stop'),
         h('ul', { class: 'guide-list' }, part.dependents.map((name) => h('li', {}, name)))),
+      canToggle && h('button', { class: 'depth-toggle', onClick: () => { depth = summary ? 'detail' : 'summary'; draw(); } }, summary ? 'Show technical details' : 'Show summary'),
     ].filter(Boolean));
   }
 
@@ -93,7 +119,7 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
   function showTab(next) {
     tab = next;
     draw();
-    setComponent(next === 'firmware' ? 'firmware' : selected);
+    setComponent(next === 'parts' ? selected : next);
   }
 
   function draw() {
@@ -121,11 +147,14 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
       twin.stale && h('p', { class: 'callout warn' }, `No signal. This is what ${vin} last reported, ${twin.reportedAgoMin} minutes ago. Anything since then isn’t shown.`),
       twin.drift.length > 0 && h('p', { class: 'callout neutral' }, `Waiting to sync: the cloud and this vehicle disagree on ${twin.drift.length} setting${twin.drift.length === 1 ? '' : 's'}.`),
       h('div', { class: 'tw-tabs', role: 'tablist', 'aria-label': 'Vehicle views' },
-        [['parts', 'Parts'], ['firmware', `Firmware ${twin.firmware}`]].map(([id, label]) => h('button', {
+        [['parts', 'Parts'], ['firmware', `Firmware ${twin.firmware}`], ['log', 'Event log']].map(([id, label]) => h('button', {
           role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', class: id === tab ? 'active' : '', onClick: () => showTab(id),
         }, label))),
-      tab === 'parts' ? partsLayout(twin, flagged) : firmwareLayout(twin),
-      strip,
+      h('p', { class: `verdict ${twin.verdict.level}` }, h('strong', {}, twin.verdict.label), `. ${twin.verdict.action}`),
+      tab === 'parts' && partsLayout(twin, flagged),
+      tab === 'firmware' && firmwareLayout(twin),
+      tab === 'log' && eventLogPanel({ world, vin, ui: logUi }),
+      tab !== 'log' && strip,
     ].filter(Boolean));
     if (tab === 'parts') {
       drawStrip(twin);
@@ -197,15 +226,6 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
             class: c.id === selected ? 'tw-part active' : 'tw-part', 'aria-pressed': c.id === selected ? 'true' : 'false', onClick: () => pick(c.id),
           }, h('span', {}, c.label), badge(...STATE_BADGE[c.state]))),
         ))),
-      ),
-      h('section', { class: 'panel' },
-        h('h3', {}, 'Vehicle history'),
-        (() => {
-          const events = assetHistory(world, vin);
-          return events.length
-            ? h('ol', { class: 'timeline compact' }, events.map((event) => h('li', {}, h('span', { class: 'muted' }, formatTime(event.at)), h('p', {}, event.text))))
-            : h('p', { class: 'muted' }, 'Nothing recorded since the simulation started.');
-        })(),
       ),
     );
   }

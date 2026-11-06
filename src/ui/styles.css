@@ -427,7 +427,12 @@ tr.selected td { background: var(--neutral-bg); }
 @keyframes tw-pulse { 50% { stroke-opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .tw-node.fault .tw-hit { animation: none; } }
 .tw-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
-.tw-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; color: var(--muted); font-weight: 600; }
+.tw-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 9px 16px; color: var(--muted); font-size: 15px; font-weight: 600; }
+.fw-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 16px; }
+.fw-role { margin-top: 10px; }
+.fw-role .small { margin: 0 0 6px; }
+.bar-row.wide { grid-template-columns: 150px minmax(0, 1fr) 60px; }
+.bar-row.wide .link { text-align: left; }
 .tw-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 .fw-options { border: 0; padding: 0; margin: 10px 0; min-width: 0; }
 .fw-options legend { color: var(--muted); font-size: 12px; font-weight: 600; padding: 0; margin-bottom: 4px; }

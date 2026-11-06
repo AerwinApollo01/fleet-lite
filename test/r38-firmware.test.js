@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assetHistory, assetRegister } from '../src/scenarios/assets.js';
 import { vehicleTwin } from '../src/scenarios/components.js';
 import { advanceFleet, createFleetWorld, startRollout } from '../src/scenarios/fleet.js';
-import { compatibilityIssues, firmwareView, fittedTargets, NOT_UPDATABLE, planUpdate, PATCHES, RELEASES, releaseLabel, runUpdate, startUpdate, stepUpdate, TARGETS } from '../src/scenarios/firmware.js';
+import { compatibilityIssues, fleetFirmware, firmwareView, fittedTargets, NOT_UPDATABLE, planUpdate, PATCHES, RELEASES, releaseLabel, runUpdate, startUpdate, stepUpdate, TARGETS } from '../src/scenarios/firmware.js';
 import { completeService } from '../src/scenarios/maintenance.js';
 import { scheduleRepair } from '../src/scenarios/components.js';
 
@@ -58,6 +58,36 @@ describe('R38 every part’s firmware is visible', () => {
     const updated = world.fleet.filter((v) => v.version === '1.5.0');
     expect(updated.length).toBeGreaterThan(0);
     for (const vehicle of updated) expect(releaseLabel(vehicle)).toBe('1.5.0');
+  });
+
+  it('the fleet view counts every vehicle, and mixed and latest vehicles apart', () => {
+    const world = parked();
+    const vehicle = rich(world);
+    const start = fleetFirmware(world);
+    expect(start.releases).toEqual([{ version: '1.4.2', vehicles: 60 }]);
+    expect(start.behind).toBe(60);
+    startUpdate(world, vehicle.vin, 'patch-proximity');
+    runUpdate(world, vehicle.vin);
+    expect(fleetFirmware(world).releases).toContainEqual({ version: '1.4.2 (mixed)', vehicles: 1 });
+    startUpdate(world, vehicle.vin, '1.5.0');
+    runUpdate(world, vehicle.vin);
+    const after = fleetFirmware(world);
+    expect(after.releases).toContainEqual({ version: '1.5.0', vehicles: 1 });
+    expect(after.behind).toBe(59);
+  });
+
+  it('the fleet view only counts vehicles that have the part', () => {
+    const world = createFleetWorld();
+    const cargo = fleetFirmware(world).parts.find((part) => part.id === 'cargo');
+    expect(cargo.versions.reduce((sum, item) => sum + item.vehicles, 0)).toBe(world.fleet.filter((v) => v.hardwareRev === 'headroom').length);
+  });
+
+  it('the fleet view counts a part that won’t start', () => {
+    const world = parked();
+    const vehicle = rich(world);
+    startUpdate(world, vehicle.vin, 'patch-proximity', 'cut:proximity');
+    runUpdate(world, vehicle.vin);
+    expect(fleetFirmware(world).parts.find((part) => part.id === 'proximity').wontStart).toBe(1);
   });
 
   it('every release set is a tested combination', () => {

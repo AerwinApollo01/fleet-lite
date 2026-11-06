@@ -74,7 +74,9 @@ export function firmwarePanels({ world, vin, ui, selected, signal, refresh }) {
             class: 'primary', disabled: plan.blocked.length > 0,
             onClick: () => act(() => { startUpdate(world, vin, option.id, ui.problem || null); ui.problem = ''; }),
           }, 'Start update'))
-        : h('p', { class: 'muted small' }, 'A technician or engineer runs updates. You can see what each part is running.'),
+        : h('div', { class: 'fw-role' },
+            h('p', { class: 'muted small' }, 'Only a technician or engineer can run updates.'),
+            h('button', { class: 'primary', onClick: () => { window.location.hash = `#technician/assets/${vin}/firmware`; } }, 'Switch to Technician to update')),
     );
   }
 

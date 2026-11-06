@@ -121,7 +121,7 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
       twin.stale && h('p', { class: 'callout warn' }, `No signal. This is what ${vin} last reported, ${twin.reportedAgoMin} minutes ago. Anything since then isn’t shown.`),
       twin.drift.length > 0 && h('p', { class: 'callout neutral' }, `Waiting to sync: the cloud and this vehicle disagree on ${twin.drift.length} setting${twin.drift.length === 1 ? '' : 's'}.`),
       h('div', { class: 'tw-tabs', role: 'tablist', 'aria-label': 'Vehicle views' },
-        [['parts', 'Parts'], ['firmware', 'Firmware']].map(([id, label]) => h('button', {
+        [['parts', 'Parts'], ['firmware', `Firmware ${twin.firmware}`]].map(([id, label]) => h('button', {
           role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', class: id === tab ? 'active' : '', onClick: () => showTab(id),
         }, label))),
       tab === 'parts' ? partsLayout(twin, flagged) : firmwareLayout(twin),

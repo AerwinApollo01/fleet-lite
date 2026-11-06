@@ -286,6 +286,29 @@ export function restoreFirmware(world, vin, partId) {
   world.firmwareLog.push({ vin, at: world.now, text: `${targetById(partId).label} restored on ${entry.version} by a technician` });
 }
 
+// What the whole fleet runs, by release set and by part.
+export function fleetFirmware(world) {
+  const latest = Object.keys(RELEASES).find((id) => RELEASES[id].latest);
+  const count = (values) => [...values.reduce((map, value) => map.set(value, (map.get(value) ?? 0) + 1), new Map())]
+    .map(([version, vehicles]) => ({ version, vehicles })).sort((a, b) => b.vehicles - a.vehicles);
+  const behind = world.fleet.filter((vehicle) => releaseLabel(vehicle) !== latest);
+  return {
+    latest,
+    releases: count(world.fleet.map(releaseLabel)),
+    behind: behind.length,
+    firstBehind: behind.find((vehicle) => vehicle.online)?.vin ?? behind[0]?.vin ?? world.fleet[0].vin,
+    parts: TARGETS.map((target) => {
+      const vehicles = world.fleet.filter((vehicle) => fitted(vehicle, target));
+      return {
+        id: target.id, label: target.label, level: TIERS[target.tier].label, slots: target.slots, recovery: target.recovery,
+        versions: count(vehicles.map((vehicle) => vehicle.firmware[target.id].version)),
+        behind: vehicles.filter((vehicle) => vehicle.firmware[target.id].version !== releaseVersion(latest, target.id, vehicle)).length,
+        wontStart: vehicles.filter((vehicle) => vehicle.firmware[target.id].state === 'bricked').length,
+      };
+    }),
+  };
+}
+
 export function firmwareView(world, vin) {
   const vehicle = world.fleet.find((v) => v.vin === vin);
   const options = [

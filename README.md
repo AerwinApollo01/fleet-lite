@@ -40,7 +40,7 @@ for its job (R28, R30). Learn is available to everyone. Each view has its own li
 | Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
 | Assets | Vehicles, packs, and parts at any fleet size: a fleet grid, facet filters, search, and paging. The demo fleet goes up to 5,000 | R32–R33, R35, R37 |
 | Vehicle system view | Opens from Assets. A diagram of the parts and how they connect, with faults, signals, reliability, and what stops if a part fails | R36 |
-| Vehicle firmware | A tab on each vehicle: what every part runs, and an update you can step through and break | R38–R39 |
+| Vehicle firmware | A view in Assets for the whole fleet, and a tab on each vehicle: what every part runs, and an update you can step through and break | R38–R39 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
 | Software rollouts | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |

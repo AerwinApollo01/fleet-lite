@@ -4,6 +4,7 @@ import { assetHistory, assetRegister } from '../scenarios/assets.js';
 import { queryAssets, VIEWS } from '../scenarios/assetquery.js';
 import { componentReliability, STATE } from '../scenarios/components.js';
 import { advanceFleet, resetFleet } from '../scenarios/fleet.js';
+import { fleetFirmware } from '../scenarios/firmware.js';
 import { badge, h, panel } from './dom.js';
 import { fleetGrid } from './fleetgrid.js';
 import { saveFleetSize, SIZES } from './fleetsize.js';
@@ -12,7 +13,7 @@ import { schematic } from './schematic.js';
 
 const TONE = { 'On route': 'good', 'At depot': 'neutral', Spare: 'neutral', Faulted: 'bad', Installed: 'neutral', Ready: 'good', Charging: 'warn' };
 export const CONDITION = { fault: ['✕ Fault', 'bad'], watch: ['! Watch', 'warn'], ok: ['✓ Healthy', 'neutral'] };
-const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts reliability']];
+const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts reliability'], ['firmware', 'Firmware']];
 const PAGE_SIZE = 50;
 const DEFAULT_SORT = { key: 'condition', dir: 'asc' };
 const km = (value) => `${value.toLocaleString('en-US')} km`;
@@ -53,7 +54,7 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
     ['depot', 'Depot', (v) => v.depot],
     ...(roleOf(world) === 'technician' ? [] : [['routeId', 'Route', (v) => (v.routeId ? `${v.routeId} · ${v.area}` : '—')]]),
     ['hardware', 'Hardware', (v) => v.hardware],
-    ['firmware', 'Firmware', (v) => v.firmware],
+    ['firmware', 'Firmware', (v) => h('button', { class: 'link', title: `Open ${v.id} firmware`, onClick: () => openAsset(v.id, 'firmware') }, v.firmware)],
     ['odometerKm', 'Odometer', (v) => km(v.odometerKm)],
   ];
 
@@ -249,6 +250,40 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
     );
   }
 
+  function firmwareLens() {
+    const view = fleetFirmware(world);
+    const top = Math.max(...view.releases.map((release) => release.vehicles), 1);
+    const showRelease = (label) => { ui.lens = 'vehicles'; ui.filters.vehicles = { firmware: [label] }; ui.page = 1; render(); };
+    return h('div', {},
+      h('div', { class: 'callout neutral fw-cta' },
+        h('p', {}, view.behind
+          ? `${view.behind.toLocaleString('en-US')} of ${world.fleet.length.toLocaleString('en-US')} vehicles aren’t on Release ${view.latest}. Open a vehicle to update it step by step, or use its Firmware link in Vehicles.`
+          : `Every vehicle is on Release ${view.latest}.`),
+        h('button', { class: 'primary', onClick: () => openAsset(view.firstBehind, 'firmware') }, `Update ${view.firstBehind}`),
+      ),
+      panel('Release sets in the fleet',
+        view.releases.map((release) => h('div', { class: 'bar-row wide' },
+          h('button', { class: 'link', onClick: () => showRelease(release.version) }, release.version),
+          h('span', { class: 'bar' }, h('i', { style: `width:${(release.vehicles / top) * 100}%` })),
+          h('strong', {}, release.vehicles.toLocaleString('en-US')))),
+        h('p', { class: 'muted small' }, 'A release set pins a tested version of every part. Mixed means at least one part differs from its set. Choose one to list those vehicles.'),
+      ),
+      panel('Firmware by part',
+        h('div', { class: 'table-wrap' }, h('table', {},
+          h('thead', {}, h('tr', {}, ['Part', 'Level', 'Versions in the fleet', 'Behind latest', 'Storage'].map((text) => h('th', {}, text)))),
+          h('tbody', {}, view.parts.map((part) => h('tr', {},
+            h('td', {}, part.label),
+            h('td', {}, part.level),
+            h('td', {}, part.versions.map((item) => `${item.version} (${item.vehicles.toLocaleString('en-US')})`).join(', ')),
+            h('td', {}, part.wontStart ? h('span', {}, part.behind.toLocaleString('en-US'), ' ', badge(`✕ ${part.wontStart} won’t start`, 'bad')) : part.behind.toLocaleString('en-US')),
+            h('td', {}, part.slots === 2 ? 'Two slots' : part.recovery ? 'One slot, recoverable' : 'One slot, no recovery'),
+          ))),
+        )),
+        h('p', { class: 'muted small' }, 'Whole-fleet rollouts run from Software rollouts, which the engineer persona can open.'),
+      ),
+    );
+  }
+
   const historyList = (id) => {
     const events = assetHistory(world, id);
     return events.length
@@ -290,13 +325,13 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
   function render() {
     register = assetRegister(world);
     const { summary } = register;
-    const isParts = ui.lens === 'components';
+    const isList = ui.lens === 'vehicles' || ui.lens === 'packs';
     root.replaceChildren(...[
       h('div', { class: 'ops-head' },
         h('div', {},
           h('p', { class: 'label inline' }, `Harbor Routes · ${formatTime(world.now)}`),
           h('h2', {}, 'Assets'),
-          h('p', { class: 'muted' }, 'Start from what needs attention, then open any vehicle to see its system view and firmware.'),
+          h('p', { class: 'muted' }, 'Start from what needs attention, then open any vehicle to see its parts, or update its firmware.'),
         ),
         h('div', { class: 'toolbar end' },
           h('label', { class: 'size-pick', title: 'A larger fleet adds other depots. Changing this restarts the simulation.' },
@@ -322,18 +357,20 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
           LENSES.map(([id, label]) => h('button', {
             class: id === ui.lens ? 'active' : '', 'aria-pressed': id === ui.lens ? 'true' : 'false',
             onClick: () => { ui.lens = id; ui.page = 1; render(); },
-          }, id === 'components' ? label : `${label} (${(id === 'vehicles' ? summary.vehicles : summary.packs).toLocaleString('en-US')})`))),
-        !isParts && h('input', {
+          }, id === 'vehicles' || id === 'packs' ? `${label} (${(id === 'vehicles' ? summary.vehicles : summary.packs).toLocaleString('en-US')})` : label))),
+        isList && h('input', {
           type: 'search', class: 'search', 'aria-label': 'Search assets', value: ui.search,
           placeholder: ui.lens === 'vehicles' ? 'Type a vehicle ID and press Enter, or search by depot, part, or supplier' : 'Search packs',
           onInput: (event) => { ui.search = event.target.value; ui.page = 1; drawList(); },
           onKeydown: onSearchKey,
         }),
       ),
-      isParts ? partsView() : h('div', { class: 'asset-layout' }, side, h('div', { class: 'asset-main' }, grid, h('section', { class: 'panel' }, results))),
+      ui.lens === 'components' && partsView(),
+      ui.lens === 'firmware' && firmwareLens(),
+      isList && h('div', { class: 'asset-layout' }, side, h('div', { class: 'asset-main' }, grid, h('section', { class: 'panel' }, results))),
       drawer,
     ].filter(Boolean));
-    if (!isParts) drawList();
+    if (isList) drawList();
     drawDrawer();
   }
   render();

@@ -95,6 +95,7 @@ running something to pass.
 - **Design options scores are judgment calls.** Only the data volume and cost are calculated, and
   they cover connectivity alone, not cloud, hardware, or people.
 
+- **The demo fleet size is saved in this browser.** The simulation itself still restarts on a reload.
 - **Firmware updates are a simulation of the process.** Versions, sizes, and times are assumptions.
   Nothing is signed or flashed, install time doesn't move the clock, and fleet rollouts apply a set in
   one step rather than running each vehicle's install steps.

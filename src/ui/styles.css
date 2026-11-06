@@ -390,6 +390,7 @@ tr.selected td { background: var(--neutral-bg); }
 .wire { display: inline-block; width: 18px; height: 0; border-top: 2px dashed var(--wire-can); }
 .wire.power { border-top: 3px solid var(--wire-power); }
 .tw-stage svg { display: block; width: 100%; height: auto; }
+.fleet-diagram .tw-stage { max-width: 760px; margin: 0 auto; }
 .tw-stage.stale svg { opacity: .72; }
 .tw-body { fill: #151b21; stroke: #46525d; stroke-width: 2; }
 .tw-glass { fill: #1d2a33; stroke: #46525d; stroke-width: 1.5; }

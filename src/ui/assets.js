@@ -6,11 +6,12 @@ import { componentReliability, STATE } from '../scenarios/components.js';
 import { advanceFleet, resetFleet } from '../scenarios/fleet.js';
 import { badge, h, panel } from './dom.js';
 import { fleetGrid } from './fleetgrid.js';
+import { saveFleetSize, SIZES } from './fleetsize.js';
+import { schematic } from './schematic.js';
 
 const TONE = { 'On route': 'good', 'At depot': 'neutral', Spare: 'neutral', Faulted: 'bad', Installed: 'neutral', Ready: 'good', Charging: 'warn' };
 export const CONDITION = { fault: ['✕ Fault', 'bad'], watch: ['! Watch', 'warn'], ok: ['✓ Healthy', 'neutral'] };
-const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts']];
-const SIZES = [60, 1000, 5000];
+const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts reliability']];
 const PAGE_SIZE = 50;
 const DEFAULT_SORT = { key: 'condition', dir: 'asc' };
 const km = (value) => `${value.toLocaleString('en-US')} km`;
@@ -36,7 +37,7 @@ const sameFilters = (a, b) => {
   return clean(a) === clean(b);
 };
 
-export function mountAssets(root, { world, openAsset }) {
+export function mountAssets(root, { world, openAsset, missing = null }) {
   let register;
   const openVehicle = (id) => openAsset(id);
   const setPage = (page) => { ui.page = page; drawList(); };
@@ -201,6 +202,20 @@ export function mountAssets(root, { world, openAsset }) {
     );
   }
 
+  function fleetDiagram(parts, selected) {
+    const twin = {
+      vin: 'the fleet', stale: false,
+      components: parts.map((part) => ({
+        id: part.id, label: part.label, system: part.system, state: part.finding ? 'watch' : 'ok',
+        stateLabel: `${part.per100k.toFixed(1)} failures per 100,000 km${part.finding ? `, ${part.finding.label} stands out` : ''}`,
+      })),
+    };
+    const svg = schematic(twin, (id) => { ui.part = id; render(); });
+    svg.querySelector(`[data-c="${selected.id}"]`).classList.add('picked');
+    return h('div', { class: 'fleet-diagram' }, svg,
+      h('p', { class: 'muted small' }, '! A supplier or hardware group fails more often than the rest. Choose a part to see its numbers. Open a vehicle from Vehicles to see that one vehicle’s parts.'));
+  }
+
   function partsView() {
     const parts = componentReliability(world);
     const top = Math.max(...parts.map((part) => part.per100k), 0.1);
@@ -210,6 +225,7 @@ export function mountAssets(root, { world, openAsset }) {
       findings.length > 0
         ? h('p', { class: 'callout warn' }, findings.map((part) => `${part.label}: ${part.finding.label} fails ${part.finding.timesRest}× as often as the rest.`).join(' '))
         : h('p', { class: 'callout neutral' }, 'No supplier or hardware group stands out yet. With a small fleet, most differences are chance. Try a larger demo fleet.'),
+      panel('Fleet system view', fleetDiagram(parts, selected)),
       panel('Reliability by part',
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, ['Part', 'System', 'Open now', 'Failures', 'Per 100,000 km', 'Distance between failures'].map((text) => h('th', {}, text)))),
@@ -270,25 +286,26 @@ export function mountAssets(root, { world, openAsset }) {
     register = assetRegister(world);
     const { summary } = register;
     const isParts = ui.lens === 'components';
-    root.replaceChildren(
+    root.replaceChildren(...[
       h('div', { class: 'ops-head' },
         h('div', {},
           h('p', { class: 'label inline' }, `Harbor Routes · ${formatTime(world.now)}`),
           h('h2', {}, 'Assets'),
-          h('p', { class: 'muted' }, 'Start from what needs attention, then open any vehicle to see inside it.'),
+          h('p', { class: 'muted' }, 'Start from what needs attention, then open any vehicle to see its system view and firmware.'),
         ),
         h('div', { class: 'toolbar end' },
           h('label', { class: 'size-pick', title: 'A larger fleet adds other depots. Changing this restarts the simulation.' },
             h('span', { class: 'muted' }, 'Demo fleet'),
             h('select', {
               'aria-label': 'Demo fleet size. Changing this restarts the simulation.',
-              onChange: (event) => { resetFleet(world, Number(event.target.value)); ui.page = 1; ui.selected = null; render(); },
+              onChange: (event) => { const size = Number(event.target.value); resetFleet(world, size); saveFleetSize(size); ui.page = 1; ui.selected = null; render(); },
             }, SIZES.map((size) => h('option', { value: size, selected: size === world.fleet.length }, size.toLocaleString('en-US')))),
           ),
           h('button', { onClick: () => { advanceFleet(world, 1); render(); } }, '+1 hour'),
           h('button', { onClick: () => { advanceFleet(world, 24); render(); } }, '+1 day'),
         ),
       ),
+      missing && h('p', { class: 'callout warn' }, `${missing} isn’t in this demo fleet of ${summary.vehicles.toLocaleString('en-US')} vehicles. Choose a vehicle below, or change the demo fleet size.`),
       h('div', { class: 'grid stats' },
         h('div', { class: 'stat' }, h('span', { class: 'label' }, 'Vehicles in use'), h('strong', {}, `${summary.inUse.toLocaleString('en-US')} of ${summary.vehicles.toLocaleString('en-US')}`)),
         h('div', { class: 'stat' }, h('span', { class: 'label' }, 'Vehicles needing attention'), h('strong', {}, summary.needAttention.toLocaleString('en-US'))),
@@ -310,7 +327,7 @@ export function mountAssets(root, { world, openAsset }) {
       ),
       isParts ? partsView() : h('div', { class: 'asset-layout' }, side, h('div', { class: 'asset-main' }, grid, h('section', { class: 'panel' }, results))),
       drawer,
-    );
+    ].filter(Boolean));
     if (!isParts) drawList();
     drawDrawer();
   }

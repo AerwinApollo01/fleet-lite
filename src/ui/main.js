@@ -14,6 +14,7 @@ import { mountLearn } from './learn.js';
 import { mountAssets, selectAsset } from './assets.js';
 import { mountDesign } from './design.js';
 import { mountTwin } from './twin.js';
+import { savedFleetSize } from './fleetsize.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 import { alertSummary } from '../scenarios/alerts.js';
 import { ROLES, SCREENS } from '../core/roles.js';
@@ -25,7 +26,7 @@ const MOUNTS = {
 };
 const DEFAULT_PERSONA = 'owner';
 
-const world = createFleetWorld();
+const world = createFleetWorld(savedFleetSize());
 const content = h('main', { id: 'content' });
 const screens = h('nav', { class: 'rail-nav', 'aria-label': 'Screens' });
 const personaMenu = h('div', { class: 'persona-menu', role: 'group', 'aria-label': 'Choose a persona' });
@@ -104,7 +105,8 @@ function show() {
       setComponent: (id) => window.history.replaceState(null, '', `#${current.role}/assets/${vin}/${id}`),
     });
   } else {
-    MOUNTS[current.tab](view, { world, goTo, openAsset });
+    const missing = current.tab === 'assets' ? current.assetId : null;
+    MOUNTS[current.tab](view, { world, goTo, openAsset, missing });
   }
   window.scrollTo(0, 0);
 }

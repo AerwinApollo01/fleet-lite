@@ -4,6 +4,7 @@ import { hash01 } from '../core/rng.js';
 import { authorize } from '../core/roles.js';
 import { DAY } from '../core/time.js';
 import { resolveCapabilities } from '../sdv/resolver.js';
+import { restoreFirmware } from './firmware.js';
 import { packFor, packHealth } from './packs.js';
 
 export const DAILY_KM = 22;
@@ -81,5 +82,6 @@ export function completeService(world, orderId) {
   if (!order || order.status !== 'scheduled') throw new Error('There is no open work order with that number');
   const vehicle = world.fleet.find((v) => v.vin === order.vin);
   Object.assign(order, { status: 'done', doneAt: world.now, odometerKm: odometerKm(world, vehicle) });
+  restoreFirmware(world, order.vin, order.itemId);
   world.onChange?.();
 }

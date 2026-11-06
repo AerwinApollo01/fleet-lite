@@ -1,5 +1,5 @@
 // One fleet shared by the Vehicle and OTA tabs. Mixed hardware and suppliers, on purpose.
-import { applyConnectivity, createCampaign, faultModel, step, versionInventory } from '../core/ota.js';
+import { applyConnectivity, createCampaign, faultModel, step, versionApplier, versionInventory } from '../core/ota.js';
 import { at, HOUR } from '../core/time.js';
 import { CATALOG } from '../sdv/catalog.js';
 import { featureApplier } from '../sdv/deploy.js';
@@ -7,6 +7,7 @@ import { canHost, resolveCapabilities } from '../sdv/resolver.js';
 import { createTwin, reconcile, setDesired } from '../sdv/twin.js';
 import { createAlertState, evaluateAlerts } from './alerts.js';
 import { createReportState, recordHour } from './reports.js';
+import { anyUpdateRunning, applyRelease, createFirmware } from './firmware.js';
 import { createPackState } from './packs.js';
 
 export const OWNER = 'Release owner';
@@ -29,6 +30,13 @@ export const ROLLOUTS = [
   { id: 'prox', kind: 'feature', featureId: 'proximity-alert', label: 'Proximity alerts', build: '1.0', faultRate: HEALTHY },
 ];
 
+// A firmware rollout moves every part to its version in the release set.
+const releaseApplier = {
+  install(campaign, vehicle) { applyRelease(vehicle, campaign.toVersion); return true; },
+  revert(campaign, vehicle) { applyRelease(vehicle, campaign.fromVersion); return true; },
+  needsRevert: versionApplier.needsRevert,
+};
+
 export function createFleetWorld(count = 60) {
   const fleet = Array.from({ length: count }, (_, i) => ({
     ...createTwin({
@@ -42,10 +50,11 @@ export function createFleetWorld(count = 60) {
     faulted: false,
     pinnedOffline: false,
   }));
+  for (const vehicle of fleet) vehicle.firmware = createFirmware(vehicle, FACTORY_VERSION);
   const now = at(1, 10);
   applyConnectivity(fleet, now);
   const world = {
-    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [],
+    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [], updates: {}, firmwareLog: [],
     ...createPackState(fleet, now),
     ...createAlertState(),
     ...createReportState(),
@@ -82,13 +91,14 @@ function audience(world, rollout) {
 }
 
 export function canStart(world, rollout) {
-  return !rolloutActive(world) && audience(world, rollout).hosts.length > 0;
+  return !rolloutActive(world) && !anyUpdateRunning(world) && audience(world, rollout).hosts.length > 0;
 }
 
 export function startRollout(world, rolloutId) {
   const rollout = ROLLOUTS.find((r) => r.id === rolloutId);
   if (!rollout) throw new Error(`Unknown rollout ${rolloutId}`);
   if (rolloutActive(world)) throw new Error('Finish or roll back the current campaign first');
+  if (anyUpdateRunning(world)) throw new Error('Finish the vehicle update first');
 
   const { hosts, excluded } = audience(world, rollout);
   if (hosts.length === 0) throw new Error('No vehicle can host this build');
@@ -112,7 +122,7 @@ export function startRollout(world, rolloutId) {
     ],
     gate: { metric: 'post-install faults', maxRate: 0.1, soakMinutes: 24 * HOUR, minSample: 5 },
     eligible: (v) => targets.has(v.vin),
-    ...(isFeature ? { applier: featureApplier(rollout.featureId) } : {}),
+    applier: isFeature ? featureApplier(rollout.featureId) : releaseApplier,
   });
 }
 

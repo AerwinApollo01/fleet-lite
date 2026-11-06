@@ -233,6 +233,21 @@ Felt: a supplier or hardware problem shows up as a finding, not a hunch.
 Test: at 5,000 vehicles the two planted problems are found and no other part is flagged. Small samples
 make no claim. Distance only counts on vehicles that have the part.
 
+**R38 · Every part's firmware is visible, and a vehicle shows when it's mixed.**
+Felt: someone can see what each part runs, where it lives, and how it gets updated.
+Test: a release set pins a version for every fitted part, and the battery supplier decides which BMS
+image applies. A patch shows as mixed. Fleet rollouts and rollbacks move every part. Brakes and parts
+with no firmware can't be targeted.
+
+**R39 · One vehicle can be updated in the simulator, and failures behave like the real thing.**
+Felt: someone can run an update step by step, break it, and see what's left behind.
+Test: untested combinations, no signal, shift hours, and a running fleet rollout all block an update.
+Only a technician or engineer can run one. Two-slot parts stage first, one-slot parts flash next, and
+two-slot parts switch together. A power cut on a two-slot part changes nothing. On a one-slot part it
+retries, or leaves the part unable to start if there's no recovery path, until a repair restores it. A
+failed health check returns two-slot parts to their old slots. Every one-slot version in a set works
+with every other tested set.
+
 ### Architecture choices
 
 **R34 · Architecture tradeoffs can be explored, not just described.**

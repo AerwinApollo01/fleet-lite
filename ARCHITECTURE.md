@@ -140,6 +140,20 @@ a precomputed store fed by events, plus retained time series, which are simulate
 **Test.** The list and the twin agree across a 500-vehicle fleet, and repairs flow through work orders
 (R36).
 
+## AD-11 · Release sets with tested patches, delivered through one update master
+
+**Decision.** A release set pins a tested version for every part. A single-part patch is allowed only
+if the result is a tested combination. The gateway downloads and verifies once, and parts receive
+images through it. Two-slot parts stage first and switch together. One-slot parts flash before that
+switch, so their new versions must work with the old set.
+**Why.** Nine independently updated parts would create combinations nobody tested. A strict set alone
+would make an urgent sensor fix wait for a full release.
+**Cost.** Someone has to keep the compatibility record current. A vehicle can legitimately be mixed, so
+support needs to see per-part versions. Keeping one-slot firmware backward compatible limits how fast
+those interfaces can change.
+**Revisit if.** Hardware gives every part two slots, or the patch list grows until the sets mean nothing.
+**Test.** Untested combinations are refused, and a failed switch leaves a tested combination (R39).
+
 ---
 
 ## Decisions already in place

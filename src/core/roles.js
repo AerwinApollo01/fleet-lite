@@ -46,6 +46,7 @@ const ACTIONS = {
   'zone.manage': ['engineer', 'owner'],
   'service.schedule': ['engineer', 'owner', 'technician'],
   'service.complete': ['engineer', 'technician'],
+  'firmware.update': ['engineer', 'technician'],
   'report.export': ['engineer', 'owner'],
   'trace.view': ['engineer'],
 };

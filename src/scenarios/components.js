@@ -9,6 +9,7 @@ import { BATTERY_SUPPLIERS } from '../sdv/hal.js';
 import { HARDWARE, PLATFORM_RESERVED } from '../sdv/hardware.js';
 import { resolveCapabilities } from '../sdv/resolver.js';
 import { drift } from '../sdv/twin.js';
+import { releaseLabel } from './firmware.js';
 import { DAILY_KM, ITEMS, odometerKm, scheduleService, serviceItem, startOdometerKm } from './maintenance.js';
 import { lastSeenMinutes } from './operations.js';
 import { LOW_HEALTH_PCT, packHealth } from './packs.js';
@@ -149,6 +150,7 @@ function condition(world, vehicle, component, pack, repairs, knownUntil) {
   const { open, building } = classified;
   const item = component.item ? serviceItem(world, vehicle, component.item) : null;
   const signs = [];
+  if (vehicle.firmware[component.id]?.state === 'bricked') signs.push(['fault', 'A firmware update didn’t finish, and this part won’t start.']);
   if (component.id === 'vcu' && vehicle.faulted) signs.push(['fault', 'A software update left this vehicle faulted.']);
   for (const event of open) signs.push([event.severity, `${event.title} (${event.code}).`]);
   if (item?.status === 'OVERDUE') signs.push(['fault', `${item.label} overdue by ${Math.abs(item.remainingKm)} km.`]);
@@ -243,7 +245,7 @@ export function vehicleTwin(world, vin) {
     };
   });
   return {
-    vin, hardware: HARDWARE[vehicle.hardwareRev].label, supplier: supplierLabel(vehicle.supplier), firmware: vehicle.version,
+    vin, hardware: HARDWARE[vehicle.hardwareRev].label, supplier: supplierLabel(vehicle.supplier), firmware: releaseLabel(vehicle),
     depot: vehicle.depot, online: vehicle.online, stale: !vehicle.online, reportedAgoMin: world.now - knownUntil, odometer,
     drift: drift(vehicle), faulted: vehicle.faulted, components,
     state: worstOf(components.filter((c) => c.state !== 'absent').map((c) => c.state)),

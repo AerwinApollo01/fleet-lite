@@ -2,6 +2,7 @@
 import { authorize } from '../core/roles.js';
 import { evaluateAlerts } from './alerts.js';
 import { fleetHealth, supplierLabel } from './components.js';
+import { releaseLabel } from './firmware.js';
 import { HOME_DEPOT } from './fleet.js';
 import { odometerKm } from './maintenance.js';
 import { planningDay, routeRows } from './operations.js';
@@ -38,7 +39,7 @@ export function assetRegister(world) {
       depot: vehicle.depot,
       hardware: HARDWARE[vehicle.hardwareRev].label,
       supplier: supplierLabel(vehicle.supplier),
-      firmware: vehicle.version,
+      firmware: releaseLabel(vehicle),
       packId: installed.get(vehicle.vin).id,
       odometerKm: odometerKm(world, vehicle),
       routeId: row?.route.id ?? null,
@@ -95,6 +96,7 @@ export function assetHistory(world, id) {
   for (const alert of world.alerts.filter((a) => a.vin === id)) {
     events.push({ at: alert.openedAt, text: alert.title });
   }
+  for (const entry of world.firmwareLog.filter((e) => e.vin === id)) events.push({ at: entry.at, text: entry.text });
   const install = world.campaign?.results.get(id);
   if (install) {
     events.push({ at: install.at, text: `Update ${world.campaign.toVersion} installed${install.outcome === 'fault' ? ', with a fault' : ''}` });

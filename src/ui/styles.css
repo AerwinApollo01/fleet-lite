@@ -418,6 +418,27 @@ tr.selected td { background: var(--neutral-bg); }
 .tw-node.dim { opacity: .22; }
 @keyframes tw-pulse { 50% { stroke-opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .tw-node.fault .tw-hit { animation: none; } }
+.tw-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.tw-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 14px; color: var(--muted); font-weight: 600; }
+.tw-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+.fw-options { border: 0; padding: 0; margin: 10px 0; min-width: 0; }
+.fw-options legend { color: var(--muted); font-size: 12px; font-weight: 600; padding: 0; margin-bottom: 4px; }
+.fw-options label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 13.5px; }
+.fw-options label.active { border-color: var(--accent); background: var(--neutral-bg); }
+.fw-options input { accent-color: var(--accent); margin-top: 4px; }
+.fw-options span span { display: block; font-size: 12.5px; }
+.fw-blocked { margin: 10px 0 8px !important; }
+.fw-problem { display: grid; gap: 3px; margin-top: 10px; font-size: 12.5px; }
+.fw-problem select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
+.fw-result { display: grid; gap: 4px; justify-items: start; margin: 8px 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.fw-steps { list-style: none; margin: 6px 0 0; padding: 0; font-size: 13.5px; }
+.fw-steps li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 4px; padding: 2px 0; color: var(--muted); }
+.fw-steps li.done { color: var(--text); }
+.fw-steps li.now { color: var(--accent); font-weight: 600; }
+.fw-tier { margin-top: 14px; }
+.fw-tier h4 { margin: 0; font-size: 13.5px; }
+.fw-tier .small { margin: 2px 0 6px; }
+.link.picked { text-decoration: underline; }
 .spark { position: relative; }
 .spark svg { display: block; width: 100%; height: auto; }
 .spark-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }

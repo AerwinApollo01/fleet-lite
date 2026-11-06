@@ -2,6 +2,7 @@
 // one page of rows ever reaches the screen.
 import { componentById, STATE } from './components.js';
 
+const collator = new Intl.Collator('en', { numeric: true });
 const conditionLabel = (row) => (row.condition === 'ok' ? 'Healthy' : STATE[row.condition].label);
 const band = (value, edges) => edges.find(([limit]) => value < limit)?.[1] ?? edges.at(-1)[1];
 
@@ -51,8 +52,8 @@ function comparator({ key, dir }) {
   const value = (row) => (key === 'condition' ? STATE[row.condition].rank : row[key]);
   return (a, b) => {
     const [x, y] = [value(a), value(b)];
-    const order = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''), 'en', { numeric: true });
-    return sign * order || a.id.localeCompare(b.id, 'en', { numeric: true });
+    const order = typeof x === 'number' && typeof y === 'number' ? x - y : collator.compare(String(x ?? ''), String(y ?? ''));
+    return sign * order || collator.compare(a.id, b.id);
   };
 }
 

@@ -40,6 +40,7 @@ for its job (R28, R30). Learn is available to everyone. Each view has its own li
 | Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
 | Assets | Vehicles, packs, and parts at any fleet size: a fleet grid, facet filters, search, and paging. The demo fleet goes up to 5,000 | R32–R33, R35, R37 |
 | Vehicle system view | Opens from Assets. A diagram of the parts and how they connect, with faults, signals, reliability, and what stops if a part fails | R36 |
+| Vehicle firmware | A tab on each vehicle: what every part runs, and an update you can step through and break | R38–R39 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
 | Software rollouts | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
@@ -94,6 +95,9 @@ running something to pass.
 - **Design options scores are judgment calls.** Only the data volume and cost are calculated, and
   they cover connectivity alone, not cloud, hardware, or people.
 
+- **Firmware updates are a simulation of the process.** Versions, sizes, and times are assumptions.
+  Nothing is signed or flashed, install time doesn't move the clock, and fleet rollouts apply a set in
+  one step rather than running each vehicle's install steps.
 - **Part faults and signals are simulated.** They come from fixed failure rates, including two planted
   problems for the Parts view to find. Codes are made up. Pack, service, firmware, and compute values
   come from the app's real records.

@@ -7,6 +7,7 @@ import { advanceFleet } from '../scenarios/fleet.js';
 import { completeService } from '../scenarios/maintenance.js';
 import { readyPacks } from '../scenarios/packs.js';
 import { badge, h } from './dom.js';
+import { firmwarePanels } from './firmware.js';
 import { CONDITION, listNeighbors } from './assets.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -26,7 +27,7 @@ const PARTS = {
   gateway: { box: [576, 64, 104, 28], label: 'Gateway' },
   position: { box: [478, 64, 88, 28], label: 'Position' },
   motion: { box: [566, 262, 96, 30], label: 'Motion' },
-  proximity: { box: [802, 252, 44, 62], label: 'Prox.' },
+  proximity: { box: [792, 252, 58, 62], label: 'Prox.' },
 };
 const WHEELS = { tires: { cx: 198, cy: 352, r: 60, label: 'Tires' }, brakes: { cx: 710, cy: 352, r: 60, label: 'Brakes' } };
 
@@ -39,7 +40,7 @@ function schematic(twin, onPick) {
   const stateOf = (id) => twin.components.find((c) => c.id === id);
   const node = (id, inner) => {
     const part = stateOf(id);
-    return `<g class="tw-node ${part.state}" data-c="${id}" data-system="${part.system}" tabindex="0" role="button" aria-label="${part.label}: ${STATE[part.state].label}">${inner}</g>`;
+    return `<g class="tw-node ${part.state}" data-c="${id}" data-system="${part.system}" tabindex="0" role="button" aria-label="${part.label}: ${part.stateLabel ?? STATE[part.state].label}">${inner}</g>`;
   };
   const boxes = Object.entries(PARTS).map(([id, { box: [x, y, w, height], label }]) => {
     const state = stateOf(id).state;
@@ -114,8 +115,11 @@ function sparkline(signal) {
 }
 
 export function mountTwin(root, { world, vin, component, openAsset, closeAsset, setComponent }) {
-  let selected = component;
+  let tab = component === 'firmware' ? 'firmware' : 'parts';
+  let selected = tab === 'parts' ? component : null;
   let layer = 'All';
+  let tierLayer = 'All';
+  const fw = { target: null, problem: '', pick: (id) => pick(id) };
   const stage = h('div', {});
   const inspector = h('aside', { class: 'tw-inspector', 'aria-label': 'Part details' });
   const strip = h('div', { class: 'tw-strip' });
@@ -181,7 +185,13 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
 
   function pick(id) {
     selected = id;
-    setComponent(id);
+    if (tab === 'parts') setComponent(id);
+    draw();
+  }
+
+  function showTab(next) {
+    tab = next;
+    setComponent(next === 'firmware' ? 'firmware' : selected);
     draw();
   }
 
@@ -189,7 +199,7 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
     const twin = vehicleTwin(world, vin);
     fleetParts = componentReliability(world);
     const ranked = twin.components.filter((c) => c.state !== 'absent').sort((a, b) => STATE[a.state].rank - STATE[b.state].rank);
-    if (!selected || !twin.components.some((c) => c.id === selected)) selected = ranked[0].id;
+    if (tab === 'parts' && (!selected || !twin.components.some((c) => c.id === selected))) selected = ranked[0].id;
     const around = listNeighbors(vin);
     const flagged = ranked.filter((c) => c.state === 'fault' || c.state === 'watch');
 
@@ -209,33 +219,74 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
       ),
       twin.stale && h('p', { class: 'callout warn' }, `No signal. This is what ${vin} last reported, ${twin.reportedAgoMin} minutes ago. Anything since then isn’t shown.`),
       twin.drift.length > 0 && h('p', { class: 'callout neutral' }, `Waiting to sync: the cloud and this vehicle disagree on ${twin.drift.length} setting${twin.drift.length === 1 ? '' : 's'}.`),
-      h('div', { class: 'tw-layout' },
-        h('section', { class: 'panel tw-main' },
-          h('div', { class: 'toolbar tight' },
-            h('div', { class: 'segmented', role: 'group', 'aria-label': 'Highlight a system' },
-              ['All', ...SYSTEMS].map((name) => h('button', {
-                class: name === layer ? 'active' : '', 'aria-pressed': name === layer ? 'true' : 'false',
-                onClick: () => { layer = name; draw(); },
-              }, name))),
-            h('span', { class: 'tw-key' }, h('span', {}, h('i', { class: 'wire can' }), 'Data (CAN)'), h('span', {}, h('i', { class: 'wire power' }), 'High voltage')),
-          ),
-          (() => {
-            const svg = schematic(twin, pick);
-            svg.querySelectorAll('[data-c]').forEach((g) => {
-              g.classList.toggle('picked', g.dataset.c === selected);
-              g.classList.toggle('dim', layer !== 'All' && g.dataset.system !== layer);
-            });
-            return svg;
-          })(),
-          h('p', { class: 'muted small' }, flagged.length
-            ? `${flagged.length} part${flagged.length === 1 ? '' : 's'} need${flagged.length === 1 ? 's' : ''} attention. Choose any part to inspect it.`
-            : 'Every fitted part is healthy. Choose any part to inspect it.'),
-        ),
-        inspector,
-      ),
+      h('div', { class: 'tw-tabs', role: 'tablist', 'aria-label': 'Vehicle views' },
+        [['parts', 'Parts'], ['firmware', 'Firmware']].map(([id, label]) => h('button', {
+          role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', class: id === tab ? 'active' : '', onClick: () => showTab(id),
+        }, label))),
+      tab === 'parts' ? partsLayout(twin, flagged) : firmwareLayout(twin),
       strip,
     ].filter(Boolean));
+    if (tab === 'parts') {
+      drawStrip(twin);
+      drawInspector(twin);
+    }
+  }
 
+  function diagram(twin, dimmed) {
+    const svg = schematic(twin, pick);
+    svg.querySelectorAll('[data-c]').forEach((g) => {
+      g.classList.toggle('picked', g.dataset.c === selected);
+      g.classList.toggle('dim', dimmed(g));
+    });
+    return svg;
+  }
+
+  function partsLayout(twin, flagged) {
+    return h('div', { class: 'tw-layout' },
+      h('section', { class: 'panel tw-main' },
+        h('div', { class: 'toolbar tight' },
+          h('div', { class: 'segmented', role: 'group', 'aria-label': 'Highlight a system' },
+            ['All', ...SYSTEMS].map((name) => h('button', {
+              class: name === layer ? 'active' : '', 'aria-pressed': name === layer ? 'true' : 'false',
+              onClick: () => { layer = name; draw(); },
+            }, name))),
+          h('span', { class: 'tw-key' }, h('span', {}, h('i', { class: 'wire can' }), 'Data (CAN)'), h('span', {}, h('i', { class: 'wire power' }), 'High voltage')),
+        ),
+        diagram(twin, (g) => layer !== 'All' && g.dataset.system !== layer),
+        h('p', { class: 'muted small' }, flagged.length
+          ? `${flagged.length} part${flagged.length === 1 ? '' : 's'} need${flagged.length === 1 ? 's' : ''} attention. Choose any part to inspect it.`
+          : 'Every fitted part is healthy. Choose any part to inspect it.'),
+      ),
+      inspector,
+    );
+  }
+
+  function firmwareLayout(twin) {
+    const panels = firmwarePanels({ world, vin, ui: fw, selected, refresh: draw });
+    const mapped = {
+      ...twin,
+      components: twin.components.map((part) => ({ ...part, ...(panels.states[part.id] ?? { state: 'absent', stateLabel: part.state === 'absent' ? 'Not fitted' : 'No over-the-air firmware' }) })),
+    };
+    const tiers = [['All', 'All'], ['system', 'System'], ['domain', 'Subsystem'], ['component', 'Component']];
+    strip.replaceChildren(...panels.below);
+    return h('div', { class: 'tw-layout' },
+      h('section', { class: 'panel tw-main' },
+        h('div', { class: 'toolbar tight' },
+          h('div', { class: 'segmented', role: 'group', 'aria-label': 'Highlight a firmware level' },
+            tiers.map(([id, name]) => h('button', {
+              class: id === tierLayer ? 'active' : '', 'aria-pressed': id === tierLayer ? 'true' : 'false',
+              onClick: () => { tierLayer = id; draw(); },
+            }, name))),
+          h('span', { class: 'tw-key' }, h('span', {}, '! Will change'), h('span', {}, '– No OTA firmware')),
+        ),
+        diagram(mapped, (g) => tierLayer !== 'All' && panels.tierOf[g.dataset.c] !== tierLayer),
+        h('p', { class: 'muted small' }, 'Updates enter through the gateway. The vehicle computer passes them along to each part.'),
+      ),
+      panels.side,
+    );
+  }
+
+  function drawStrip(twin) {
     strip.replaceChildren(
       h('section', { class: 'panel' },
         h('h3', {}, 'All parts'),
@@ -256,7 +307,6 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
         })(),
       ),
     );
-    drawInspector(twin);
   }
 
   root.replaceChildren(stage);

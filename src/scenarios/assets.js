@@ -1,32 +1,45 @@
 // The asset register: one record per thing you own, and one history for each.
 import { authorize } from '../core/roles.js';
 import { evaluateAlerts } from './alerts.js';
+import { fleetHealth, supplierLabel } from './components.js';
+import { HOME_DEPOT } from './fleet.js';
 import { odometerKm } from './maintenance.js';
 import { planningDay, routeRows } from './operations.js';
-import { installPack, LOW_HEALTH_PCT, packFor, packHealth, packStatus, readyPacks } from './packs.js';
+import { installPack, LOW_HEALTH_PCT, packHealth, packStatus, readyPacks } from './packs.js';
 import { hash01 } from '../core/rng.js';
 import { isOnShift } from '../core/ota.js';
+import { HARDWARE } from '../sdv/hardware.js';
 
 export const PACK_STATUS = { INSTALLED: 'Installed', READY: 'Ready', CHARGING: 'Charging' };
 
 function vehicleStatus(world, vehicle, row) {
   if (vehicle.faulted) return 'Faulted';
-  if (!row) return 'Spare';
+  const mapped = vehicle.depot === HOME_DEPOT;
+  if (mapped ? !row : hash01(`${vehicle.vin}:spare`) < 0.1) return 'Spare';
   return isOnShift(world.now) ? 'On route' : 'At depot';
 }
 
 export function assetRegister(world) {
   const rows = new Map(routeRows(world).map((row) => [row.vehicle.vin, row]));
+  const health = fleetHealth(world);
+  const installed = new Map(world.packs.filter((pack) => pack.vin).map((pack) => [pack.vin, pack]));
   const vehicles = world.fleet.map((vehicle) => {
     const row = rows.get(vehicle.vin);
+    const { state, flagged, worst, openFaults } = health.get(vehicle.vin);
     return {
       id: vehicle.vin,
       type: 'Vehicle',
       status: vehicleStatus(world, vehicle, row),
       online: vehicle.online,
-      hardware: vehicle.hardwareRev,
+      condition: state,
+      flagged,
+      worst,
+      openFaults,
+      depot: vehicle.depot,
+      hardware: HARDWARE[vehicle.hardwareRev].label,
+      supplier: supplierLabel(vehicle.supplier),
       firmware: vehicle.version,
-      packId: packFor(world, vehicle).id,
+      packId: installed.get(vehicle.vin).id,
       odometerKm: odometerKm(world, vehicle),
       routeId: row?.route.id ?? null,
       area: row?.route.area ?? null,
@@ -38,6 +51,7 @@ export function assetRegister(world) {
     id: pack.id,
     type: 'Battery pack',
     status: PACK_STATUS[packStatus(pack, world.now)],
+    condition: packHealth(pack) < LOW_HEALTH_PCT ? 'watch' : 'ok',
     vin: pack.vin,
     healthPct: packHealth(pack),
     lowHealth: packHealth(pack) < LOW_HEALTH_PCT,
@@ -53,6 +67,7 @@ export function assetRegister(world) {
       inUse: count(vehicles, 'On route') + count(vehicles, 'At depot'),
       spare: count(vehicles, 'Spare'),
       faulted: count(vehicles, 'Faulted'),
+      needAttention: vehicles.filter((vehicle) => vehicle.condition !== 'ok').length,
       packs: packs.length,
       packsReady: count(packs, 'Ready'),
       packsCharging: count(packs, 'Charging'),

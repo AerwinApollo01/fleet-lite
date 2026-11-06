@@ -3,13 +3,15 @@
 import { hash01 } from '../core/rng.js';
 import { DAY, HOUR } from '../core/time.js';
 
-const SPARE_PACKS = 10;
+const MIN_SPARE_PACKS = 10;
 export const FULL_VOLTS = 54;
 export const LOW_HEALTH_PCT = 90;
 const CHARGE_HOURS = 4;
 
 export function createPackState(fleet, now) {
-  const total = fleet.length + SPARE_PACKS;
+  const spares = Math.max(MIN_SPARE_PACKS, Math.round(fleet.length / 6));
+  const charging = Math.max(3, Math.round(spares * 0.3));
+  const total = fleet.length + spares;
   const packs = Array.from({ length: total }, (_, i) => {
     const id = `P-${1001 + i}`;
     return {
@@ -18,7 +20,7 @@ export function createPackState(fleet, now) {
       baseHealthPct: 99.5 - hash01(`${id}:soh`) * 10,
       cycles: Math.round(80 + hash01(`${id}:cycles`) * 620),
       ageDays: Math.round(60 + hash01(`${id}:age`) * 640),
-      readyAt: i >= fleet.length + 7 ? now + (i - fleet.length - 5) * HOUR : null,
+      readyAt: i >= total - charging ? now + (2 + ((i - total + charging) % 3)) * HOUR : null,
     };
   });
   return { packs, packEvents: [] };

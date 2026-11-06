@@ -17,16 +17,17 @@ export const ITEMS = [
 
 const daysElapsed = (world) => Math.floor(world.now / DAY);
 
+export const startOdometerKm = (vehicle) => 4000 + hash01(`${vehicle.vin}:odo`) * 9000;
+
 export function odometerKm(world, vehicle) {
-  return Math.round(4000 + hash01(`${vehicle.vin}:odo`) * 9000 + daysElapsed(world) * DAILY_KM);
+  return Math.round(startOdometerKm(vehicle) + daysElapsed(world) * DAILY_KM);
 }
 
 function lastDoneKm(world, vehicle, item) {
   const done = world.serviceOrders.filter((o) => o.vin === vehicle.vin && o.itemId === item.id && o.status === 'done');
   if (done.length) return done.at(-1).odometerKm;
   // Every vehicle starts part-way through each interval, so work comes due at different times.
-  const start = 4000 + hash01(`${vehicle.vin}:odo`) * 9000;
-  return start - hash01(`${vehicle.vin}:${item.id}:used`) * item.intervalKm * 1.02;
+  return startOdometerKm(vehicle) - hash01(`${vehicle.vin}:${item.id}:used`) * item.intervalKm * 1.02;
 }
 
 function itemState(world, vehicle, item) {
@@ -40,6 +41,10 @@ function itemState(world, vehicle, item) {
 function batteryHealth(vehicle, world) {
   if (!resolveCapabilities(vehicle).active.includes('battery-health')) return null;
   return packHealth(packFor(world, vehicle));
+}
+
+export function serviceItem(world, vehicle, itemId) {
+  return itemState(world, vehicle, ITEMS.find((item) => item.id === itemId));
 }
 
 export function maintenanceView(world) {

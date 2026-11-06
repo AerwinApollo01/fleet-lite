@@ -214,6 +214,25 @@ Felt: anyone can see what they have, where it is, and what's happened to it.
 Test: totals add up, vehicles and packs agree on where each pack is, and history is built from the
 records the system already keeps. The register has no driver data.
 
+**R35 · A fleet of thousands stays quick to work through.**
+Felt: nobody scrolls to find a vehicle. They start from what needs attention, or go straight to an ID.
+Test: at 5,000 vehicles only one page of rows comes back, and pages cover every row once. The worst
+come first. Search words all have to match. A facet count equals what ticking it returns. A larger
+demo fleet leaves the mapped routes and their spares unchanged.
+
+**R36 · A vehicle can be read as a system.**
+Felt: someone can see which part is the problem, what it's been doing, and what stops if it fails.
+Test: the list and the twin never disagree, and a vehicle is as bad as its worst part. Pack, brake,
+tire, firmware, and compute values come from the records the rest of the app uses. A part the hardware
+lacks shows as not fitted. A part can go on watch before it fails, and acting early heads the failure
+off. A repair closes a fault and keeps it in the record. An offline vehicle shows nothing newer than
+its last report. There's no driver or location data.
+
+**R37 · Reliability shows patterns the fleet can act on.**
+Felt: a supplier or hardware problem shows up as a finding, not a hunch.
+Test: at 5,000 vehicles the two planted problems are found and no other part is flagged. Small samples
+make no claim. Distance only counts on vehicles that have the part.
+
 ### Architecture choices
 
 **R34 · Architecture tradeoffs can be explored, not just described.**

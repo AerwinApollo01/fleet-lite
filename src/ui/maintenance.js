@@ -1,11 +1,11 @@
 import { can, roleOf } from '../core/roles.js';
 import { formatTime } from '../core/time.js';
 import { advanceFleet } from '../scenarios/fleet.js';
-import { completeService, ITEMS, maintenanceView, scheduleService } from '../scenarios/maintenance.js';
+import { workLabel } from '../scenarios/components.js';
+import { completeService, maintenanceView, scheduleService } from '../scenarios/maintenance.js';
 import { badge, h, panel, table } from './dom.js';
 
 const STATE = { OVERDUE: ['✕ Overdue', 'bad'], DUE_SOON: ['! Due soon', 'warn'] };
-const itemLabel = (id) => ITEMS.find((i) => i.id === id).label;
 
 function dueText(item) {
   if (item.remainingKm < 0) return `${Math.abs(item.remainingKm)} km over`;
@@ -46,7 +46,7 @@ export function mountMaintenance(root, { world }) {
         panel('Work orders',
           view.scheduled.length
             ? table(['Order', 'Vehicle', 'Work', ''], view.scheduled.map((order) => [
-                `#${order.id}`, order.vin, itemLabel(order.itemId),
+                `#${order.id}`, order.vin, workLabel(order.itemId),
                 canComplete
                   ? h('button', { class: 'primary small', onClick: () => { completeService(world, order.id); render(); } }, 'Mark done')
                   : badge('Waiting on service'),

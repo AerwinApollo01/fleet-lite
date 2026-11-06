@@ -14,6 +14,11 @@ export const FACTORY_FEATURES = ['range-forecast', 'battery-health'];
 const FACTORY_VERSION = '1.4.2';
 const HEALTHY = 0.005;
 const BAD = 0.4;
+// The first 60 vehicles run the mapped Los Angeles routes. A larger demo fleet adds other depots.
+export const HOME_DEPOT = 'Harbor';
+const HOME_FLEET = 60;
+const OTHER_DEPOTS = ['Long Beach', 'Burbank', 'Ontario', 'Irvine', 'Riverside', 'Oxnard', 'San Bernardino'];
+const depotFor = (i) => (i < HOME_FLEET ? HOME_DEPOT : OTHER_DEPOTS[i % OTHER_DEPOTS.length]);
 
 export const ROLLOUTS = [
   { id: 'fw-good', kind: 'firmware', label: 'Firmware 1.5.0', build: '1.5.0', faultRate: HEALTHY },
@@ -32,6 +37,7 @@ export function createFleetWorld(count = 60) {
       supplier: (i >> 2) % 2 === 0 ? 'alpha' : 'bravo',
       factory: { installed: FACTORY_FEATURES, entitled: FACTORY_FEATURES },
     }),
+    depot: depotFor(i),
     version: FACTORY_VERSION,
     faulted: false,
     pinnedOffline: false,
@@ -48,8 +54,9 @@ export function createFleetWorld(count = 60) {
   return world;
 }
 
-export function resetFleet(world) {
-  Object.assign(world, createFleetWorld(world.fleet.length));
+export function resetFleet(world, count = world.fleet.length) {
+  Object.assign(world, createFleetWorld(count));
+  world.onChange?.();
 }
 
 export const rolloutActive = (world) =>

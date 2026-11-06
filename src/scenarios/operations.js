@@ -70,6 +70,13 @@ export function vehicleFor(world, route) {
   return swap ? world.fleet.find((v) => v.vin === swap.vin) : defaultVehicle(world, route);
 }
 
+// How long ago a vehicle last reported. Connected vehicles report every few minutes.
+export function lastSeenMinutes(vehicle, now) {
+  return vehicle.online
+    ? 1 + Math.floor(hash01(`${vehicle.vin}:fresh:${now}`) * 4)
+    : 12 + Math.floor(hash01(`${vehicle.vin}:seen:${planningDay(now)}`) * 78);
+}
+
 function morningVolts(packId, day) {
   const undercharged = hash01(`${packId}:low:${day}`) < 0.08;
   const spread = hash01(`${packId}:charge:${day}`);
@@ -81,7 +88,7 @@ function evaluate(world, vehicle, route, { fresh = false, withPack = null } = {}
   const day = planningDay(world.now);
   const pack = withPack ?? packFor(world, vehicle);
   const packSwap = lastPackSwap(world, vehicle.vin, day);
-  const lastSeenMin = vehicle.online ? 1 + Math.floor(hash01(`${vehicle.vin}:fresh:${world.now}`) * 4) : 12 + Math.floor(hash01(`${vehicle.vin}:seen:${day}`) * 78);
+  const lastSeenMin = lastSeenMinutes(vehicle, world.now);
   const reportedAt = vehicle.online ? world.now : world.now - lastSeenMin;
 
   const swap = activeSwap(world, route);
@@ -141,7 +148,8 @@ function rowFor(world, route) {
 export function availableSpares(world) {
   const assigned = new Set(ROUTES.map((route) => vehicleFor(world, route).vin));
   const released = new Set(ROUTES.filter((route) => activeSwap(world, route)).map((route) => defaultVehicle(world, route).vin));
-  return world.fleet.filter((v) => !assigned.has(v.vin) && !released.has(v.vin) && !v.faulted && v.online);
+  const local = (v) => v.depot === world.fleet[0].depot;
+  return world.fleet.filter((v) => local(v) && !assigned.has(v.vin) && !released.has(v.vin) && !v.faulted && v.online);
 }
 
 const WHY = {

@@ -13,6 +13,7 @@ import { mountReports } from './reports.js';
 import { mountLearn } from './learn.js';
 import { mountAssets, selectAsset } from './assets.js';
 import { mountDesign } from './design.js';
+import { mountTwin } from './twin.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 import { alertSummary } from '../scenarios/alerts.js';
 import { ROLES, SCREENS } from '../core/roles.js';
@@ -34,15 +35,20 @@ let current = { role: DEFAULT_PERSONA, tab: ROLES[DEFAULT_PERSONA].tabs[0] };
 
 // The address is the source of truth, so back, refresh, and bookmarks all work.
 function fromAddress() {
-  const [role, tab] = window.location.hash.slice(1).split('/');
+  const [role, tab, assetId, component] = window.location.hash.slice(1).split('/');
   const persona = ROLES[role] ? role : DEFAULT_PERSONA;
-  return { role: persona, tab: ROLES[persona].tabs.includes(tab) ? tab : ROLES[persona].tabs[0] };
+  const known = ROLES[persona].tabs.includes(tab);
+  return { role: persona, tab: known ? tab : ROLES[persona].tabs[0], assetId: known ? assetId ?? null : null, component: component ?? null };
 }
 
 function open(role, tab) {
   const address = `#${role}/${tab}`;
   if (window.location.hash === address) show();
   else window.location.hash = address;
+}
+
+function openAsset(id, component = null) {
+  window.location.hash = `#${current.role}/assets/${id}${component ? `/${component}` : ''}`;
 }
 
 function goTo(tab) {
@@ -89,7 +95,17 @@ function show() {
   const view = h('div', {});
   content.replaceChildren(view);
   content.className = current.tab === 'operator' ? 'bleed' : '';
-  MOUNTS[current.tab](view, { world, goTo });
+  const vin = current.tab === 'assets' && world.fleet.some((v) => v.vin === current.assetId) ? current.assetId : null;
+  if (vin) {
+    mountTwin(view, {
+      world, vin, component: current.component, openAsset,
+      closeAsset: () => open(current.role, 'assets'),
+      // Choosing a part updates the address without a new history entry or a remount.
+      setComponent: (id) => window.history.replaceState(null, '', `#${current.role}/assets/${vin}/${id}`),
+    });
+  } else {
+    MOUNTS[current.tab](view, { world, goTo, openAsset });
+  }
   window.scrollTo(0, 0);
 }
 

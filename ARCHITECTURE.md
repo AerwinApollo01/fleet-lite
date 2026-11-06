@@ -126,6 +126,20 @@ vehicle and driver working.
 **Test.** Health moves with the pack, and a swap fixes the route and appears in every history
 (R32–R33).
 
+## AD-10 · The system twin is a read model over existing records
+
+**Decision.** The part-by-part view of a vehicle computes from records the system already keeps: packs,
+service items, firmware, connectivity, and hardware revision. It stores no state of its own, and work
+goes through the same work orders as Maintenance. This is separate from the desired/reported twin in
+AD-4, which decides what a vehicle should run. That one controls. This one explains.
+**Why.** A second copy of vehicle health would eventually disagree with the first, and then nobody
+trusts either. It also keeps an offline vehicle honest: the view stops at its last report.
+**Cost.** Each view recomputes from records. That's fine here, but a real fleet would need
+a precomputed store fed by events, plus retained time series, which are simulated here.
+**Revisit if.** Fleet-wide views get slow, or people need history no current record holds.
+**Test.** The list and the twin agree across a 500-vehicle fleet, and repairs flow through work orders
+(R36).
+
 ---
 
 ## Decisions already in place

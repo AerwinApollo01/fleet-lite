@@ -5,7 +5,7 @@ import { insideZone } from '../core/geo.js';
 import { authorize } from '../core/roles.js';
 import { DAY, HOUR } from '../core/time.js';
 import { isOnShift } from '../core/ota.js';
-import { routeRows, swapVehicle, undoSwap } from './operations.js';
+import { routeRows, standingSwaps, swapVehicle, undoSwap } from './operations.js';
 
 export const ZONES = [
   { id: 'expo', name: 'Exposition Park event closure', center: [-118.285, 34.02], radiusKm: 0.5 },
@@ -44,7 +44,7 @@ function conditions(world) {
 const isOpen = (alert) => alert.status === 'open' || alert.status === 'acknowledged';
 
 function close(world, alert) {
-  const acted = world.swapLog.some((s) => s.routeId === alert.routeId && s.at >= alert.openedAt)
+  const acted = standingSwaps(world).some((s) => s.routeId === alert.routeId && s.at >= alert.openedAt)
     || world.packEvents.some((e) => e.vin === alert.vin && e.at >= alert.openedAt);
   alert.status = acted ? 'acted' : 'cleared';
   alert.closedAt = world.now;

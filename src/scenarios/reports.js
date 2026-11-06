@@ -2,7 +2,7 @@
 import { authorize } from '../core/roles.js';
 import { isOnShift, SHIFT } from '../core/ota.js';
 import { DAY, HOUR } from '../core/time.js';
-import { defaultVehicle, ROUTES, routeRows } from './operations.js';
+import { defaultVehicle, ROUTES, routeRows, standingSwaps } from './operations.js';
 
 const WH_PER_KM = 48;
 const FAILED = ['WONT_FINISH', 'OUT_OF_SERVICE'];
@@ -31,7 +31,7 @@ function withActivity(world, base) {
     onTimePct: Math.round((base.finished / base.routes) * 100),
     uptimePct: Math.round((1 - base.faulted / base.fleetSize) * 100),
     energyKwh: Math.round((base.km * WH_PER_KM) / 100) / 10,
-    swaps: world.swapLog.filter((s) => inDay(s.at)).length,
+    swaps: standingSwaps(world).filter((s) => inDay(s.at)).length,
     alerts: alerts.length,
     alertsActed: alerts.filter((a) => a.status === 'acted').length,
   };
@@ -69,5 +69,6 @@ export function whoHad(world, vin, at) {
 
   const route = last ? (last.to === vin ? ROUTES.find((r) => r.id === last.routeId) : null) : home;
   if (!route) return { driver: null, note: last ? 'Swapped out and back at the depot.' : 'A spare, not assigned at that time.' };
-  return { driver: route.driver, routeId: route.id, area: route.area, note: last?.to === vin ? 'Took over this route in a swap.' : 'Assigned for this shift.' };
+  const note = !last ? 'Assigned for this shift.' : last.undoes ? 'Back on this route after a swap was undone.' : 'Took over this route in a swap.';
+  return { driver: route.driver, routeId: route.id, area: route.area, note };
 }

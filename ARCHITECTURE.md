@@ -136,6 +136,7 @@ vehicle and driver working.
 | Raw data is immutable, except location | `core/telemetry.js` | R12 |
 | Driver access uses short leases cached on the vehicle | `core/auth.js` | R5, R6 |
 | Silence never passes a rollout gate | `core/ota.js` | R8 |
+| The swap log is append-only, so an undo is a new entry | `scenarios/operations.js` | R27 |
 | Every number carries measured or modeled provenance | `core/range.js` | R10 |
 
 ---

@@ -208,6 +208,10 @@ function bestPack(world, row, candidates) {
   return works[0] ?? null;
 }
 
+function appendSwap(world, entry) {
+  world.swapLog.push(Object.freeze({ id: world.swapLog.length + 1, ...entry }));
+}
+
 export function swapVehicle(world, routeId, vin) {
   const route = ROUTES.find((r) => r.id === routeId);
   if (!route) throw new Error(`Unknown route ${routeId}`);
@@ -215,12 +219,23 @@ export function swapVehicle(world, routeId, vin) {
   const from = vehicleFor(world, route).vin;
   const day = planningDay(world.now);
   world.swaps[routeId] = { vin, at: world.now, day };
-  world.swapLog.push({ routeId, from, to: vin, at: world.now, day });
+  appendSwap(world, { routeId, from, to: vin, at: world.now, day });
 }
 
+// The log is append-only. An undo is a new entry pointing at the swap it reverses, the way a
+// ledger is corrected with another line. The original swap stays on the record.
 export function undoSwap(world, routeId) {
+  const swap = world.swaps[routeId];
+  if (!swap) throw new Error(`Route ${routeId} has no swap to undo`);
+  const entry = world.swapLog.findLast((e) => e.routeId === routeId && !e.undoes);
   delete world.swaps[routeId];
-  world.swapLog = world.swapLog.filter((entry, i, log) => !(entry.routeId === routeId && i === log.findLastIndex((e) => e.routeId === routeId)));
+  appendSwap(world, { routeId, from: entry.to, to: entry.from, at: world.now, day: entry.day, undoes: entry.id });
+}
+
+// Swaps that still stand: not undo entries, and not reversed by one.
+export function standingSwaps(world) {
+  const undone = new Set(world.swapLog.filter((e) => e.undoes).map((e) => e.undoes));
+  return world.swapLog.filter((e) => !e.undoes && !undone.has(e.id));
 }
 
 export const routeRows = (world) => ROUTES.map((route) => rowFor(world, route));

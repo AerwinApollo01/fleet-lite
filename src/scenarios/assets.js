@@ -70,8 +70,8 @@ export function assetHistory(world, id) {
     if (event.removed === id) events.push({ at: event.at, text: `Removed from ${event.vin} to charge` });
   }
   for (const swap of world.swapLog) {
-    if (swap.to === id) events.push({ at: swap.at, text: `Took over route ${swap.routeId}` });
-    if (swap.from === id) events.push({ at: swap.at, text: `Replaced on route ${swap.routeId}` });
+    if (swap.to === id) events.push({ at: swap.at, text: swap.undoes ? `Swap undone, back on route ${swap.routeId}` : `Took over route ${swap.routeId}` });
+    if (swap.from === id) events.push({ at: swap.at, text: swap.undoes ? `Swap undone, left route ${swap.routeId}` : `Replaced on route ${swap.routeId}` });
   }
   for (const order of world.serviceOrders.filter((o) => o.vin === id)) {
     events.push({ at: order.createdAt, text: `Work order #${order.id} scheduled` });
@@ -84,7 +84,8 @@ export function assetHistory(world, id) {
   if (install) {
     events.push({ at: install.at, text: `Update ${world.campaign.toVersion} installed${install.outcome === 'fault' ? ', with a fault' : ''}` });
   }
-  return events.sort((a, b) => b.at - a.at);
+  // Within the same minute, later entries came later, so reverse before the stable sort.
+  return events.reverse().sort((a, b) => b.at - a.at);
 }
 
 export function swapPack(world, vin, packId) {

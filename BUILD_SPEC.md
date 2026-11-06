@@ -195,8 +195,8 @@ appear as broken. The view contains no driver or location data.
 
 **R27 · Reports close the day, and custody can be looked up.**
 Felt: the owner can see how the week went, and answer who had a vehicle at a given time.
-Test: a day closes at the end of the shift and can't change. Custody follows swaps, and an
-undone swap leaves no record. Future times are refused.
+Test: a day closes at the end of the shift and can't change. Custody follows swaps, and the swap
+log is append-only, so an undo is a new entry and the original stays. Future times are refused.
 
 **R28 · Roles are enforced in the logic, not just hidden.**
 Felt: people see the tools for their job and nothing else.
@@ -213,6 +213,14 @@ the old pack to charge, adds a cycle, counts as acting on an alert, and needs a 
 Felt: anyone can see what they have, where it is, and what's happened to it.
 Test: totals add up, vehicles and packs agree on where each pack is, and history is built from the
 records the system already keeps. The register has no driver data.
+
+### Architecture choices
+
+**R34 · Architecture tradeoffs can be explored, not just described.**
+Felt: someone can see what a design costs, what it risks, and who they'd depend on.
+Test: every one of the 486 designs scores in range, and none does well on everything. Data cost
+matches hand calculations. Risks depend on fleet and team size, and partner questions change
+between build and buy.
 
 ### Navigation
 

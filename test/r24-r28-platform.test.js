@@ -5,7 +5,8 @@ import { at, HOUR } from '../src/core/time.js';
 import { acknowledgeAlert, activeZones, alertSummary, dismissAlert, evaluateAlerts, setZone, swapRoute, undoRouteSwap, ZONES } from '../src/scenarios/alerts.js';
 import { advanceFleet, createFleetWorld } from '../src/scenarios/fleet.js';
 import { completeService, ITEMS, maintenanceView, scheduleService } from '../src/scenarios/maintenance.js';
-import { operationsView, ROUTES } from '../src/scenarios/operations.js';
+import { operationsView, ROUTES, routeRow } from '../src/scenarios/operations.js';
+import { assetHistory } from '../src/scenarios/assets.js';
 import { reportsCsv, todaySoFar, whoHad } from '../src/scenarios/reports.js';
 
 const ALL = ROLES.engineer.tabs;
@@ -242,13 +243,84 @@ describe('R27 reports close the day, and custody can be looked up', () => {
     expect(whoHad(world, original, swappedAt - HOUR).driver).toBe(route.driver);
   });
 
-  it('removes the record when a swap is undone', () => {
-    const world = createFleetWorld();
-    const { row, spare } = operationsView(world).decisions.find((d) => d.spare);
-    swapRoute(world, row.route.id, spare.vin);
-    undoRouteSwap(world, row.route.id);
-    expect(world.swapLog).toHaveLength(0);
-    expect(whoHad(world, row.vehicle.vin, world.now).driver).toBe(row.route.driver);
+  describe('an undone swap', () => {
+    function undone() {
+      const world = createFleetWorld();
+      const { row, spare } = operationsView(world).decisions.find((d) => d.spare);
+      const swappedAt = world.now;
+      swapRoute(world, row.route.id, spare.vin);
+      advanceFleet(world, 1);
+      const undoneAt = world.now;
+      undoRouteSwap(world, row.route.id);
+      return { world, row, spare, swappedAt, undoneAt };
+    }
+
+    it('adds a record and keeps the original', () => {
+      const { world, row, spare } = undone();
+      expect(world.swapLog).toHaveLength(2);
+      const [swap, undo] = world.swapLog;
+      expect(swap).toMatchObject({ id: 1, from: row.vehicle.vin, to: spare.vin });
+      expect(undo).toMatchObject({ id: 2, from: spare.vin, to: row.vehicle.vin, undoes: 1 });
+    });
+
+    it('cannot be edited after it is written', () => {
+      const { world } = undone();
+      expect(Object.isFrozen(world.swapLog[0])).toBe(true);
+      expect(() => { world.swapLog[0].to = 'V-999'; }).toThrow();
+    });
+
+    it('still answers who had the vehicle at each moment', () => {
+      const { world, row, spare, swappedAt, undoneAt } = undone();
+      expect(whoHad(world, spare.vin, swappedAt).driver).toBe(row.route.driver);
+      expect(whoHad(world, row.vehicle.vin, swappedAt).driver).toBeNull();
+      expect(whoHad(world, spare.vin, undoneAt).driver).toBeNull();
+      expect(whoHad(world, row.vehicle.vin, undoneAt)).toMatchObject({ driver: row.route.driver, note: expect.stringMatching(/undone/) });
+    });
+
+    it('puts the original vehicle back on the route', () => {
+      const { world, row, spare } = undone();
+      expect(routeRow(world, row.route.id).vehicle.vin).toBe(row.vehicle.vin);
+      expect(routeRow(world, row.route.id).swapped).toBe(false);
+      expect(operationsView(world).spares).toContain(spare);
+    });
+
+    it('shows in both vehicles’ histories, and does not count as a swap', () => {
+      const { world, row, spare } = undone();
+      expect(assetHistory(world, spare.vin).map((e) => e.text)).toEqual(expect.arrayContaining([`Took over route ${row.route.id}`, `Swap undone, left route ${row.route.id}`]));
+      expect(assetHistory(world, row.vehicle.vin).map((e) => e.text)).toContain(`Swap undone, back on route ${row.route.id}`);
+      expect(todaySoFar(world).swaps).toBe(0);
+    });
+
+    it('lists a same-minute undo above the swap it reversed', () => {
+      const world = createFleetWorld();
+      const { row, spare } = operationsView(world).decisions.find((d) => d.spare);
+      swapRoute(world, row.route.id, spare.vin);
+      undoRouteSwap(world, row.route.id);
+      expect(assetHistory(world, spare.vin).map((e) => e.text)).toEqual([`Swap undone, left route ${row.route.id}`, `Took over route ${row.route.id}`]);
+    });
+
+    it('is refused when there is nothing to undo', () => {
+      expect(() => undoRouteSwap(createFleetWorld(), 'R-01')).toThrow(/no swap/);
+    });
+
+    it('allows the route to be swapped again, and undone again', () => {
+      const { world, row, spare } = undone();
+      swapRoute(world, row.route.id, spare.vin);
+      undoRouteSwap(world, row.route.id);
+      expect(world.swapLog.map((e) => e.undoes ?? null)).toEqual([null, 1, null, 3]);
+    });
+
+    it('does not mark a later alert on that route as acted', () => {
+      const world = createFleetWorld();
+      const { row, spare } = operationsView(world).decisions.find((d) => d.spare);
+      advanceFleet(world, 1);
+      const alert = world.alerts.find((a) => a.routeId === row.route.id);
+      const freshSpare = operationsView(world).spares.find((v) => v.vin === spare.vin) ?? operationsView(world).spares[0];
+      swapRoute(world, row.route.id, freshSpare.vin);
+      undoRouteSwap(world, row.route.id);
+      advanceFleet(world, 9);
+      expect(world.alerts.filter((a) => a.routeId === row.route.id && a !== alert).every((a) => a.status !== 'acted')).toBe(true);
+    });
   });
 
   it('refuses the future and explains off-shift hours', () => {

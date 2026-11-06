@@ -8,6 +8,7 @@ export const SCREENS = {
   assets: 'Assets',
   learn: 'Learn',
   architecture: 'System map',
+  design: 'Design options',
   vehicle: 'Vehicle software',
   ota: 'Software rollouts',
   transfer: 'Ownership transfer',
@@ -31,7 +32,7 @@ export const ROLES = {
     { label: 'Service', tabs: ['maintenance', 'assets'] },
   ]),
   engineer: persona('Platform engineer', 'Engineer', 'You build the platform and support customers. You can see every layer.', [
-    { label: 'Data and system', tabs: ['architecture', 'range'] },
+    { label: 'Data and system', tabs: ['architecture', 'design', 'range'] },
     { label: 'Ship software', tabs: ['ota', 'vehicle'] },
     { label: 'Identity and access', tabs: ['transfer', 'revocation'] },
     { label: 'What customers see', tabs: ['operator', 'alerts', 'assets', 'maintenance', 'reports'] },

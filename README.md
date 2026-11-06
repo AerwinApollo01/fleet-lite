@@ -47,6 +47,7 @@ for its job (R28, R30). Learn is available to everyone. Each view has its own li
 | Driver access | Revoking driver access, online and offline | R5–R6 |
 | Range model | Measured vs. modeled values, and the customer-facing claim | R10–R11 |
 | System map | The whole system as a live map, with traces through each layer | R20 |
+| Design options | Compare architectures: data cost, tradeoffs, risks, and partner questions | R34 |
 | Learn | How-it-works guides with hands-on tools, a searchable glossary, and lessons learned | R29, R31 |
 
 R12 (location retention) is tested in the core and has no screen. Everything except Ownership
@@ -88,6 +89,9 @@ freezes it, not stops it" with nothing running, which proves nothing. It now has
 running something to pass.
 
 ## Not done
+
+- **Design options scores are judgment calls.** Only the data volume and cost are calculated, and
+  they cover connectivity alone, not cloud, hardware, or people.
 
 - **The register covers vehicles and battery packs only.** Chargers, parts, and telematics units
   aren't tracked yet, and there's no purchase, depreciation, or disposal.

@@ -17,11 +17,11 @@ const Z90 = 1.2816;
 export function estimateRange(inputs, modelVersion = 'range-1.0') {
   const model = MODELS[modelVersion];
   if (!model) throw new Error(`Unknown model ${modelVersion}`);
-  const { packVolts, tempC, payloadKg, gradePct, stopsPerKm } = inputs;
+  const { packVolts, tempC, payloadKg, gradePct, stopsPerKm, healthPct = 100 } = inputs;
 
   const soc = Math.min(1, Math.max(0, (packVolts - PACK.emptyVolts) / (PACK.fullVolts - PACK.emptyVolts)));
   const coldLoss = Math.max(0, 20 - tempC) * model.coldLossPerDegree;
-  const usableWh = soc * PACK.capacityWh * (1 - coldLoss);
+  const usableWh = soc * PACK.capacityWh * (healthPct / 100) * (1 - coldLoss);
   const whPerKm =
     model.whPerKm + payloadKg * model.perKg + gradePct * model.perGradePct + stopsPerKm * model.perStopPerKm;
 

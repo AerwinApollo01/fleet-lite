@@ -44,7 +44,8 @@ function conditions(world) {
 const isOpen = (alert) => alert.status === 'open' || alert.status === 'acknowledged';
 
 function close(world, alert) {
-  const acted = world.swapLog.some((s) => s.routeId === alert.routeId && s.at >= alert.openedAt);
+  const acted = world.swapLog.some((s) => s.routeId === alert.routeId && s.at >= alert.openedAt)
+    || world.packEvents.some((e) => e.vin === alert.vin && e.at >= alert.openedAt);
   alert.status = acted ? 'acted' : 'cleared';
   alert.closedAt = world.now;
 }

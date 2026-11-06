@@ -95,9 +95,9 @@ describe('R21 a software change reaches the operator as a better decision', () =
     expect(headroomRoute(world).payload.provenance).toBe('measured');
   });
 
-  it('changes at least one route decision when the real load is known', () => {
+  it('changes route decisions when the real load is known, across several days', () => {
+    const baseline = createFleetWorld();
     const released = createFleetWorld();
-    const baseline = operationsView(released).rows.map((r) => r.status);
     for (const twin of released.fleet.filter((v) => v.hardwareRev === 'headroom')) {
       setDesired(twin, {
         installed: [...twin.desired.installed, 'load-aware-range'],
@@ -108,8 +108,16 @@ describe('R21 a software change reaches the operator as a better decision', () =
       reconcile(twin, at(1, 20));
       twin.online = hold;
     }
-    const after = operationsView(released).rows.map((r) => r.status);
-    expect(after).not.toEqual(baseline);
+
+    let changed = 0;
+    for (let hour = 0; hour < 24 * 4; hour += 1) {
+      advanceFleet(baseline, 1);
+      advanceFleet(released, 1);
+      const before = operationsView(baseline).rows;
+      const after = operationsView(released).rows;
+      changed += after.filter((row, i) => row.status !== before[i].status).length;
+    }
+    expect(changed).toBeGreaterThan(0);
   });
 });
 

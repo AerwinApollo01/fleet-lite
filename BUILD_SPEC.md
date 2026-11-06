@@ -162,8 +162,8 @@ is never called on track.
 
 **R21 · A software change reaches the operator as a better decision.**
 Felt: a released feature changes what the operator can trust.
-Test: payload stays assumed until load-aware range is released, then it's measured, and at
-least one route decision changes.
+Test: payload stays assumed until load-aware range is released, then it's measured, and route
+decisions change over several days of operation.
 
 **R22 · Decisions change the plan.**
 Felt: acting on a problem clears it.
@@ -201,6 +201,18 @@ undone swap leaves no record. Future times are refused.
 **R28 · Roles are enforced in the logic, not just hidden.**
 Felt: people see the tools for their job and nothing else.
 Test: each role has a limited surface. Blocked actions throw when called directly.
+
+### Assets
+
+**R32 · A battery pack is its own asset.**
+Felt: a low battery can be fixed without losing the vehicle or the driver.
+Test: every vehicle has one pack, and range and health come from it. A swap fixes the route, sends
+the old pack to charge, adds a cycle, counts as acting on an alert, and needs a confirmed vehicle.
+
+**R33 · The asset register is one record of what you own.**
+Felt: anyone can see what they have, where it is, and what's happened to it.
+Test: totals add up, vehicles and packs agree on where each pack is, and history is built from the
+records the system already keeps. The register has no driver data.
 
 ### Navigation
 

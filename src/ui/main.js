@@ -11,13 +11,14 @@ import { mountAlerts } from './alerts.js';
 import { mountMaintenance } from './maintenance.js';
 import { mountReports } from './reports.js';
 import { mountLearn } from './learn.js';
+import { mountAssets, selectAsset } from './assets.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 import { alertSummary } from '../scenarios/alerts.js';
 import { ROLES, SCREENS } from '../core/roles.js';
 import { icon } from './icons.js';
 
 const MOUNTS = {
-  operator: mountOperator, alerts: mountAlerts, maintenance: mountMaintenance, reports: mountReports, learn: mountLearn,
+  operator: mountOperator, alerts: mountAlerts, maintenance: mountMaintenance, reports: mountReports, assets: mountAssets, learn: mountLearn,
   architecture: mountArchitecture, vehicle: mountVehicle, ota: mountOta, transfer: mountTransfer, revocation: mountRevocation, range: mountRange,
 };
 const DEFAULT_PERSONA = 'owner';
@@ -78,7 +79,10 @@ function renderChrome() {
 function show() {
   const previous = current.role;
   current = fromAddress();
-  if (current.role !== previous) selectRoute(null);
+  if (current.role !== previous) {
+    selectRoute(null);
+    selectAsset(null);
+  }
   world.role = current.role;
   renderChrome();
   const view = h('div', {});

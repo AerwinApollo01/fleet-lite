@@ -76,9 +76,11 @@ describe('R24 alerts earn their interruption', () => {
   it('keeps an acknowledged alert open until the problem is gone', () => {
     const world = createFleetWorld();
     const alert = fault(world);
+    const unread = alertSummary(world).unread;
     acknowledgeAlert(world, alert.id);
     expect(alertSummary(world).open).toContain(alert);
-    expect(alertSummary(world).unread).toBe(0);
+    expect(alert.status).toBe('acknowledged');
+    expect(alertSummary(world).unread).toBe(unread - 1);
     world.fleet[0].faulted = false;
     evaluateAlerts(world);
     expect(alert.status).toBe('cleared');

@@ -7,6 +7,7 @@ import { createClaimPolicy, routeClaim } from '../core/range.js';
 import { DAY, HOUR } from '../core/time.js';
 import { pointAlong } from '../core/geo.js';
 import routeData from '../data/la-routes.json';
+import { FULL_VOLTS, lastPackSwap, packFor, packHealth, readyPacks } from './packs.js';
 import { runRangeApp } from '../sdv/apps.js';
 import { BATTERY_SUPPLIERS, createHal } from '../sdv/hal.js';
 import { HARDWARE } from '../sdv/hardware.js';
@@ -48,7 +49,7 @@ function shiftProgress(now) {
 }
 
 // After the shift ends, the screen is planning the next one.
-function planningDay(now) {
+export function planningDay(now) {
   const hours = (now % DAY) / HOUR;
   return Math.floor(now / DAY) + (hours >= SHIFT.endHour ? 1 : 0);
 }
@@ -69,27 +70,30 @@ export function vehicleFor(world, route) {
   return swap ? world.fleet.find((v) => v.vin === swap.vin) : defaultVehicle(world, route);
 }
 
-function morningVolts(vin, day) {
-  const undercharged = hash01(`${vin}:low:${day}`) < 0.08;
-  const spread = hash01(`${vin}:charge:${day}`);
-  return undercharged ? 47.5 + spread * 2 : 52.8 + spread * 1.8;
+function morningVolts(packId, day) {
+  const undercharged = hash01(`${packId}:low:${day}`) < 0.08;
+  const spread = hash01(`${packId}:charge:${day}`);
+  return undercharged ? 47.5 + spread * 2 : 53.4 + spread * 1.2;
 }
 
 // One vehicle on one route, at one moment. `fresh` means it hasn't driven any of it yet.
-function evaluate(world, vehicle, route, { fresh = false } = {}) {
+function evaluate(world, vehicle, route, { fresh = false, withPack = null } = {}) {
   const day = planningDay(world.now);
+  const pack = withPack ?? packFor(world, vehicle);
+  const packSwap = lastPackSwap(world, vehicle.vin, day);
   const lastSeenMin = vehicle.online ? 1 + Math.floor(hash01(`${vehicle.vin}:fresh:${world.now}`) * 4) : 12 + Math.floor(hash01(`${vehicle.vin}:seen:${day}`) * 78);
   const reportedAt = vehicle.online ? world.now : world.now - lastSeenMin;
 
   const swap = activeSwap(world, route);
   const progress = shiftProgress(reportedAt);
-  const handover = swap ? shiftProgress(swap.at) : 0;
-  const driven = fresh ? 0 : Math.max(0, progress - handover);
+  const handover = Math.max(swap ? shiftProgress(swap.at) : 0, packSwap ? shiftProgress(packSwap.at) : 0);
+  const driven = fresh || withPack ? 0 : Math.max(0, progress - handover);
   const routeDone = fresh ? shiftProgress(world.now) : progress;
   const kmRemaining = route.km * (1 - routeDone);
 
   const burn = 0.92 + hash01(`${vehicle.vin}:${route.id}:${day}`) * 0.4;
-  const packVolts = Math.max(42, morningVolts(vehicle.vin, day) - driven * route.km * VOLTS_PER_KM * burn);
+  const startVolts = withPack || packSwap ? FULL_VOLTS : morningVolts(pack.id, day);
+  const packVolts = Math.max(42, startVolts - driven * route.km * VOLTS_PER_KM * burn);
   const tempC = 9 + hash01(`temp:${day}`) * 11;
 
   const capabilities = resolveCapabilities(vehicle);
@@ -102,9 +106,11 @@ function evaluate(world, vehicle, route, { fresh = false } = {}) {
     gradePct: route.gradePct,
     stopsPerKm: route.stopsPerKm,
     useCargoSensor: capabilities.active.includes('load-aware-range'),
+    healthPct: packHealth(pack),
   });
 
   return {
+    pack,
     kmRemaining,
     routeDone,
     position: pointAlong(route.path, routeDone),
@@ -163,11 +169,14 @@ export function operationsView(world) {
 
   // A spare can only be recommended once, so two decisions never promise the same vehicle.
   const promised = new Set();
+  const promisedPacks = new Set();
   const decisions = actions.map((row) => {
     const candidates = availableSpares(world).filter((v) => !promised.has(v.vin));
     const spare = bestSpare(world, row.route, candidates);
     if (spare) promised.add(spare.vin);
-    return { row, spare, why: explain(row) };
+    const pack = bestPack(world, row, readyPacks(world).filter((p) => !promisedPacks.has(p.id)));
+    if (pack) promisedPacks.add(pack.id);
+    return { row, spare, pack, why: explain(row) };
   });
 
   return {
@@ -187,6 +196,16 @@ function bestSpare(world, route, candidates) {
     .filter(({ facts }) => facts.claim.status === 'WILL_FINISH')
     .sort((a, b) => b.facts.estimate.rangeKm.interval.p10 - a.facts.estimate.rangeKm.interval.p10);
   return ranked[0]?.vehicle ?? null;
+}
+
+// A charged pack is the cheaper fix: same vehicle, same driver. It can't help a faulted vehicle,
+// and a vehicle with no signal can't confirm the swap.
+function bestPack(world, row, candidates) {
+  if (row.vehicle.faulted || !row.vehicle.online) return null;
+  const works = candidates
+    .filter((pack) => evaluate(world, row.vehicle, row.route, { withPack: pack }).claim.status === 'WILL_FINISH')
+    .sort((a, b) => packHealth(b) - packHealth(a));
+  return works[0] ?? null;
 }
 
 export function swapVehicle(world, routeId, vin) {

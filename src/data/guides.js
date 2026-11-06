@@ -32,7 +32,7 @@ export const GUIDES = [
       ] },
       { t: 'h', text: 'When the battery can leave the vehicle' },
       { t: 'p', text: 'Removable batteries change the architecture. A pack may need its own identity and history, because its health belongs to the pack, not the vehicle. Range must reset when a different pack goes in. A pack can also miss an update while it’s sitting in a charger.' },
-      { t: 'note', text: 'In this app: the battery is treated as part of the vehicle, which wouldn’t hold up with removable packs.' },
+      { t: 'note', text: 'In this app: each pack is its own asset with its own health and history. Open Assets to see them, or swap one from the Today screen.' },
     ],
     checks: [
       { q: 'Why does the vehicle need both CAN and MQTT?', a: 'CAN connects the modules inside the vehicle, fast and locally. MQTT connects the vehicle to the cloud over an unreliable network. The telematics unit bridges them.' },

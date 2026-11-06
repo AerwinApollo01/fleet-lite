@@ -3,7 +3,9 @@ import { DAY, formatTime, HOUR } from '../core/time.js';
 import { advanceFleet, resetFleet, rolloutActive } from '../scenarios/fleet.js';
 import { cautiousKm, explain, operationsView, routeRow, STATUS } from '../scenarios/operations.js';
 import { activeZones, swapRoute, undoRouteSwap } from '../scenarios/alerts.js';
-import { can, roleOf } from '../core/roles.js';
+import { swapPack } from '../scenarios/assets.js';
+import { selectAsset } from './assets.js';
+import { can, roleOf, ROLES } from '../core/roles.js';
 import { CATALOG } from '../sdv/catalog.js';
 import { badge, h, panel } from './dom.js';
 import { getFleetMap } from './fleetmap.js';
@@ -40,14 +42,17 @@ function statusBar(view) {
   );
 }
 
-function decisionCard(decision, onSwap, onPick, allowed) {
-  const { row, spare, why } = decision;
+function decisionCard(decision, { onSwap, onPack, onPick, allowed, packAllowed }) {
+  const { row, spare, pack, why } = decision;
+  const showPack = pack && packAllowed;
   return h('li', { class: 'decision' },
     h('div', { class: 'decision-head' }, statusBadge(row.status), h('button', { class: 'link', onClick: () => onPick(row.route.id) }, `${row.route.id} · ${row.route.area}`)),
     h('p', {}, `${row.route.driver}: ${why}`),
+    showPack && h('button', { class: 'primary small', onClick: () => onPack(row.vehicle.vin, pack.id, row.route.id) }, `Swap battery to ${pack.id}`),
+    showPack && spare && ' ',
     spare
-      ? allowed && h('button', { class: 'primary small', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`)
-      : h('p', { class: 'muted small' }, row.claim.action === 'No action needed' ? 'No spare is available. Call the driver.' : `No spare can cover it. ${row.claim.action}.`),
+      ? allowed && h('button', { class: showPack ? 'small' : 'primary small', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap vehicle to ${spare.vin}`)
+      : !showPack && h('p', { class: 'muted small' }, row.claim.action === 'No action needed' ? 'No spare is available. Call the driver.' : `No spare can cover it. ${row.claim.action}.`),
   );
 }
 
@@ -75,7 +80,7 @@ function routeTable(view, onPick) {
   ));
 }
 
-function detailDrawer(world, row, { onClose, onSwap, onUndo, spare, goTo }) {
+function detailDrawer(world, row, { onClose, onSwap, onPack, onUndo, spare, pack, goTo }) {
   const active = row.capabilities.active;
   const features = CATALOG.filter((f) => !f.roadmap && row.capabilities.features.find((x) => x.id === f.id).state !== 'hardware-missing');
   return h('aside', { class: 'drawer', 'aria-label': `Route ${row.route.id} details` },
@@ -85,12 +90,14 @@ function detailDrawer(world, row, { onClose, onSwap, onUndo, spare, goTo }) {
     ),
     h('div', { class: `claim ${TONE[row.status] === 'neutral' ? '' : TONE[row.status]}` },
       h('strong', {}, `${STATUS[row.status].icon} ${STATUS[row.status].label}`), h('p', {}, explain(row))),
-    spare && can(roleOf(world), 'route.swap') && h('button', { class: 'primary full', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap to ${spare.vin}`),
+    pack && can(roleOf(world), 'pack.swap') && h('button', { class: 'primary full', onClick: () => onPack(row.vehicle.vin, pack.id, row.route.id) }, `Swap battery to ${pack.id}`),
+    spare && can(roleOf(world), 'route.swap') && h('button', { class: pack ? 'full' : 'primary full', onClick: () => onSwap(row.route.id, spare.vin) }, `Swap vehicle to ${spare.vin}`),
     row.swapped && can(roleOf(world), 'route.swap') && h('button', { class: 'full', onClick: () => onUndo(row.route.id) }, 'Undo swap'),
     h('dl', { class: 'facts' },
       h('dt', {}, 'Route left'), h('dd', {}, `${row.kmRemaining.toFixed(0)} of ${row.route.km} km`),
       h('dt', {}, 'Cautious range'), h('dd', {}, `${cautiousKm(row).toFixed(0)} km `, badge('Estimate', 'warn')),
       h('dt', {}, 'Battery'), h('dd', {}, `${Math.round(row.estimate.soc.value * 100)}% `, badge('Estimate', 'warn')),
+      h('dt', {}, 'Battery pack'), h('dd', {}, ROLES[roleOf(world)].tabs.includes('assets') ? h('button', { class: 'link', onClick: () => { selectAsset(row.pack.id); goTo('assets'); } }, row.pack.id) : row.pack.id),
       h('dt', {}, 'Load'), h('dd', {}, `${row.payload.value} kg `, row.payload.provenance === 'measured' ? badge('Measured', 'good') : badge('Assumed', 'warn')),
       h('dt', {}, 'Last update'), h('dd', {}, row.vehicle.online ? 'Just now' : `${row.lastSeenMin} min ago`),
     ),
@@ -105,6 +112,7 @@ export function mountOperator(root, { world, goTo }) {
   const fleetMap = getFleetMap();
   fleetMap.onPick = pick;
   const swap = (routeId, vin) => { swapRoute(world, routeId, vin); ui.selected = routeId; render(); };
+  const swapBattery = (vin, packId, routeId) => { swapPack(world, vin, packId); ui.selected = routeId; render(); };
   const undo = (routeId) => { undoRouteSwap(world, routeId); render(); };
 
   function onKey(event) {
@@ -127,7 +135,9 @@ export function mountOperator(root, { world, goTo }) {
     const unconfirmed = view.counts.UNCONFIRMED;
     const selected = ui.selected ? routeRow(world, ui.selected) : null;
     fleetMap.update(view, ui.selected, activeZones(world));
-    const selectedSpare = selected && view.decisions.find((d) => d.row.route.id === ui.selected)?.spare;
+    const selectedDecision = selected && view.decisions.find((d) => d.row.route.id === ui.selected);
+    const selectedSpare = selectedDecision?.spare;
+    const selectedPack = selectedDecision?.pack;
 
     const summary = [
       view.needsDecision ? `${view.needsDecision} need${view.needsDecision === 1 ? 's' : ''} a decision` : 'Nothing needs a decision',
@@ -160,7 +170,7 @@ export function mountOperator(root, { world, goTo }) {
           view.faulted > 0 && h('p', { class: 'callout warn' }, `A software update faulted ${view.faulted} vehicle${view.faulted === 1 ? '' : 's'} on your routes. Swap ${view.faulted === 1 ? 'it' : 'them'} to a spare now. A rollback can restore ${view.faulted === 1 ? 'it' : 'them'} off shift.`),
           view.faulted === 0 && rolloutActive(world) && h('p', { class: 'callout neutral' }, 'A software update is in progress. It only installs off shift.'),
           view.decisions.length
-            ? h('ol', { class: 'decisions' }, view.decisions.map((d) => decisionCard(d, swap, pick, can(roleOf(world), 'route.swap'))))
+            ? h('ol', { class: 'decisions' }, view.decisions.map((d) => decisionCard(d, { onSwap: swap, onPack: swapBattery, onPick: pick, allowed: can(roleOf(world), 'route.swap'), packAllowed: can(roleOf(world), 'pack.swap') })))
             : h('p', { class: 'muted' }, 'You’re clear. Every route is on track or being watched.'),
           h('p', { class: 'muted small' }, `${view.spares.length} spare vehicle${view.spares.length === 1 ? '' : 's'} available.`),
         ),
@@ -191,7 +201,7 @@ export function mountOperator(root, { world, goTo }) {
           tableSlot,
         ),
       ),
-      selected && detailDrawer(world, selected, { onClose: () => { ui.selected = null; render(); }, onSwap: swap, onUndo: undo, spare: selectedSpare, goTo }),
+      selected && detailDrawer(world, selected, { onClose: () => { ui.selected = null; render(); }, onSwap: swap, onPack: swapBattery, onUndo: undo, spare: selectedSpare, pack: selectedPack, goTo }),
     ].filter(Boolean));
   }
   render();

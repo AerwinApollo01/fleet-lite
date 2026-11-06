@@ -22,7 +22,7 @@ describe('R30 you start from who you are', () => {
 
   it('keeps customer personas short and free of engineering screens', () => {
     for (const id of ['owner', 'dispatcher', 'technician']) {
-      expect(ROLES[id].tabs.length).toBeLessThanOrEqual(5);
+      expect(ROLES[id].tabs.length).toBeLessThanOrEqual(6);
       for (const tab of ENGINEERING) expect(ROLES[id].tabs).not.toContain(tab);
     }
   });

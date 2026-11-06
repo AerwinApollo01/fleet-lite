@@ -4,6 +4,7 @@ import { hash01 } from '../core/rng.js';
 import { authorize } from '../core/roles.js';
 import { DAY } from '../core/time.js';
 import { resolveCapabilities } from '../sdv/resolver.js';
+import { packFor, packHealth } from './packs.js';
 
 export const DAILY_KM = 22;
 const DUE_SOON_KM = 300;
@@ -38,7 +39,7 @@ function itemState(world, vehicle, item) {
 
 function batteryHealth(vehicle, world) {
   if (!resolveCapabilities(vehicle).active.includes('battery-health')) return null;
-  return Math.round((99 - hash01(`${vehicle.vin}:soh`) * 11 - daysElapsed(world) * 0.01) * 10) / 10;
+  return packHealth(packFor(world, vehicle));
 }
 
 export function maintenanceView(world) {

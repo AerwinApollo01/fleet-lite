@@ -29,15 +29,16 @@ for its job (R28, R30). Learn is available to everyone. Each view has its own li
 
 | Persona | Job | Screens |
 |---|---|---|
-| Fleet owner | Run the business | Today, Alerts, Maintenance, Reports |
+| Fleet owner | Run the business | Today, Alerts, Assets, Maintenance, Reports |
 | Dispatcher | Keep today's routes moving | Today, Alerts |
-| Service technician | Keep vehicles ready | Maintenance |
+| Service technician | Keep vehicles ready | Maintenance, Assets |
 | Platform engineer | Build and support the platform | All of them, grouped below |
 
 | Screen | What it shows | Requirements |
 |---|---|---|
 | Today | One headline, a decision queue, the map, and every route | R20–R23 |
 | Alerts | Rationed alerts, closures, and the alert-to-action rate | R24–R25 |
+| Assets | One register of vehicles and battery packs, with a history for each | R32–R33 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
 | Software rollouts | Staged rollouts with gates, halt, and rollback | R7–R9, R18–R19 |
@@ -87,6 +88,11 @@ freezes it, not stops it" with nothing running, which proves nothing. It now has
 running something to pass.
 
 ## Not done
+
+- **The register covers vehicles and battery packs only.** Chargers, parts, and telematics units
+  aren't tracked yet, and there's no purchase, depreciation, or disposal.
+- **Battery swaps skip the logistics.** A swap happens instantly, with no travel to a depot or
+  swap station, and charging is a simple 4-hour timer.
 
 - **Alerts stay in the app.** There's no email, SMS, or push.
 - **Closures are fixed.** You can turn the two sample closures on and off, but not draw new ones.

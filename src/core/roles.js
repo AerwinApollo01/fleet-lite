@@ -5,6 +5,7 @@ export const SCREENS = {
   alerts: 'Alerts',
   maintenance: 'Maintenance',
   reports: 'Reports',
+  assets: 'Assets',
   learn: 'Learn',
   architecture: 'System map',
   vehicle: 'Vehicle software',
@@ -21,25 +22,26 @@ function persona(label, short, summary, groups) {
 
 export const ROLES = {
   owner: persona('Fleet owner', 'Owner', 'You run the business. Are we meeting commitments, and is the fleet healthy?', [
-    { label: 'Run the fleet', tabs: ['operator', 'alerts', 'maintenance', 'reports'] },
+    { label: 'Run the fleet', tabs: ['operator', 'alerts', 'assets', 'maintenance', 'reports'] },
   ]),
   dispatcher: persona('Dispatcher', 'Dispatcher', 'You keep today’s routes moving, and act when one is in trouble.', [
     { label: 'Today’s work', tabs: ['operator', 'alerts'] },
   ]),
   technician: persona('Service technician', 'Technician', 'You keep vehicles ready. You see vehicles and work, not drivers.', [
-    { label: 'Service', tabs: ['maintenance'] },
+    { label: 'Service', tabs: ['maintenance', 'assets'] },
   ]),
   engineer: persona('Platform engineer', 'Engineer', 'You build the platform and support customers. You can see every layer.', [
     { label: 'Data and system', tabs: ['architecture', 'range'] },
     { label: 'Ship software', tabs: ['ota', 'vehicle'] },
     { label: 'Identity and access', tabs: ['transfer', 'revocation'] },
-    { label: 'What customers see', tabs: ['operator', 'alerts', 'maintenance', 'reports'] },
+    { label: 'What customers see', tabs: ['operator', 'alerts', 'assets', 'maintenance', 'reports'] },
   ]),
 };
 
 const ACTIONS = {
   'route.swap': ['engineer', 'owner', 'dispatcher'],
   'alert.respond': ['engineer', 'owner', 'dispatcher'],
+  'pack.swap': ['engineer', 'owner', 'dispatcher', 'technician'],
   'zone.manage': ['engineer', 'owner'],
   'service.schedule': ['engineer', 'owner', 'technician'],
   'service.complete': ['engineer', 'technician'],

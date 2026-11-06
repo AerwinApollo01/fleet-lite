@@ -7,6 +7,7 @@ import { canHost, resolveCapabilities } from '../sdv/resolver.js';
 import { createTwin, reconcile, setDesired } from '../sdv/twin.js';
 import { createAlertState, evaluateAlerts } from './alerts.js';
 import { createReportState, recordHour } from './reports.js';
+import { createPackState } from './packs.js';
 
 export const OWNER = 'Release owner';
 export const FACTORY_FEATURES = ['range-forecast', 'battery-health'];
@@ -39,6 +40,7 @@ export function createFleetWorld(count = 60) {
   applyConnectivity(fleet, now);
   const world = {
     now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [],
+    ...createPackState(fleet, now),
     ...createAlertState(),
     ...createReportState(),
   };

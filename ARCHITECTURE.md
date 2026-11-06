@@ -114,6 +114,18 @@ surfaces. Giving each role only what its job needs is also the simplest privacy 
 **Revisit if.** Customers need finer control than four fixed roles.
 **Test.** Blocked actions throw, even when called directly (R28).
 
+## AD-9 · A battery pack is its own asset
+
+**Decision.** Packs have their own identity, health, cycles, and history. A vehicle's range comes
+from the pack installed in it, and a swap is a recorded event.
+**Why.** With removable packs, health and history belong to the pack. Tracking them on the vehicle
+would be wrong after the first swap. It also makes a cheaper fix possible: a charged pack keeps the
+vehicle and driver working.
+**Cost.** Two records to keep in step, and swaps to reconcile with an offline vehicle.
+**Revisit if.** Batteries are fixed for the vehicle's whole life.
+**Test.** Health moves with the pack, and a swap fixes the route and appears in every history
+(R32–R33).
+
 ---
 
 ## Decisions already in place

@@ -23,7 +23,7 @@ npm test
 
 ## Personas
 
-The app opens as the fleet owner. Switch personas at the top, and each one gets only the screens
+The app opens as the fleet owner. Switch personas at the bottom of the menu, and each one gets only the screens
 for its job (R28, R30). Learn is available to everyone. Each view has its own link, such as
 `#dispatcher/alerts`.
 

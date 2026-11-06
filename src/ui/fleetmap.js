@@ -9,13 +9,19 @@ import { h } from './dom.js';
 // Vite moves the package, so the background worker has to be pointed at explicitly.
 maplibregl.setWorkerUrl(workerUrl);
 
-const STYLE = (dark) => `https://tiles.openfreemap.org/styles/${dark ? 'dark' : 'positron'}`;
-const COLORS = { good: '#0ca30c', warn: '#fab219', bad: '#d03b3b', none: '#8b938c', todo: '#2f6fed' };
+const STYLE = 'https://tiles.openfreemap.org/styles/dark';
+const COLORS = { good: '#39ff88', warn: '#ffc21a', bad: '#ff2d3f', none: '#9aa4ad', todo: '#22e3ff', driven: '#5d6871' };
 const ICON_FOR = {
   ON_TRACK: 'on-track', UNCONFIRMED: 'no-signal', NO_FORECAST: 'no-signal',
   AT_RISK: 'at-risk', WONT_FINISH: 'critical', OUT_OF_SERVICE: 'critical',
 };
+const TILT = 60;
+const BEARING = -18;
+// Building shapes only exist from zoom 13, so the city view opens there, centered on the core.
+const CITY = { center: [-118.262, 34.044], zoom: 13.05 };
 const ALL_BOUNDS = boundsOf(ROUTES.map((r) => r.path));
+const calm = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const narrow = () => window.innerWidth <= 760;
 
 function icon(draw) {
   const size = 44;
@@ -24,12 +30,11 @@ function icon(draw) {
   canvas.height = size;
   const c = canvas.getContext('2d');
   c.lineWidth = 4;
-  c.strokeStyle = '#ffffff';
   draw(c);
   return c.getImageData(0, 0, size, size);
 }
 
-const circle = (c, fill, stroke = '#ffffff') => {
+const circle = (c, fill, stroke) => {
   c.beginPath();
   c.arc(22, 22, 13, 0, Math.PI * 2);
   c.fillStyle = fill;
@@ -39,15 +44,14 @@ const circle = (c, fill, stroke = '#ffffff') => {
 };
 
 const ICONS = {
-  'on-track': (c) => circle(c, COLORS.good),
-  'no-signal': (c) => circle(c, '#ffffff', COLORS.none),
+  'on-track': (c) => circle(c, COLORS.good, '#06140c'),
+  'no-signal': (c) => circle(c, '#10151a', '#e8eef2'),
   'at-risk': (c) => {
     c.beginPath();
     c.moveTo(22, 5); c.lineTo(39, 36); c.lineTo(5, 36); c.closePath();
-    c.fillStyle = COLORS.warn; c.fill(); c.stroke();
+    c.fillStyle = COLORS.warn; c.fill(); c.strokeStyle = '#1a1300'; c.stroke();
   },
-  critical: (c) => { c.fillStyle = COLORS.bad; c.fillRect(8, 8, 28, 28); c.strokeRect(8, 8, 28, 28); },
-  depot: (c) => { c.fillStyle = '#1d2320'; c.fillRect(6, 6, 32, 32); c.strokeRect(6, 6, 32, 32); },
+  critical: (c) => { c.fillStyle = COLORS.bad; c.fillRect(8, 8, 28, 28); c.strokeStyle = '#ffffff'; c.strokeRect(8, 8, 28, 28); },
 };
 
 const lines = (coordinateSets) => ({
@@ -60,6 +64,42 @@ const points = (items) => ({
   features: items.map(({ at, ...properties }) => ({ type: 'Feature', properties, geometry: { type: 'Point', coordinates: at } })),
 });
 
+const polygons = (rings) => ({
+  type: 'FeatureCollection',
+  features: rings.map((ring) => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } })),
+});
+
+// A line with a soft halo behind it, so the route reads against the dark city.
+function glowLine(map, id, color, width) {
+  const layout = { 'line-cap': 'round', 'line-join': 'round' };
+  map.addLayer({ id: `${id}-glow`, type: 'line', source: id, layout, paint: { 'line-color': color, 'line-width': width * 4, 'line-blur': width * 3, 'line-opacity': 0.55 } });
+  map.addLayer({ id, type: 'line', source: id, layout, paint: { 'line-color': color, 'line-width': width } });
+}
+
+function darkenBaseMap(map) {
+  const { layers } = map.getStyle();
+  for (const layer of layers) {
+    if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#111418');
+    if (layer.type === 'line' && layer['source-layer'] === 'transportation') map.setPaintProperty(layer.id, 'line-color', '#343b42');
+    if (layer.type === 'fill' && layer['source-layer'] === 'building') map.setLayoutProperty(layer.id, 'visibility', 'none');
+  }
+  // Above every road and fill, but under the labels. The style mixes a few labels in early.
+  const lastShape = layers.findLastIndex((layer) => layer.type !== 'symbol');
+  const firstLabel = layers.slice(lastShape + 1).find((layer) => layer.type === 'symbol')?.id;
+  const source = layers.find((layer) => layer['source-layer'] === 'building')?.source ?? 'openmaptiles';
+  map.setLight({ anchor: 'viewport', position: [1.3, 40, 60], intensity: 0.55, color: '#dfeaf2' });
+  map.addLayer({
+    id: 'buildings-3d', type: 'fill-extrusion', source, 'source-layer': 'building', minzoom: 13,
+    filter: ['!=', ['get', 'hide_3d'], true],
+    paint: {
+      'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 8], 0, '#2b323a', 40, '#46515c', 150, '#7f8e9c'],
+      'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+      'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+      'fill-extrusion-opacity': 0.95,
+    },
+  }, firstLabel);
+}
+
 let instance = null;
 
 function createFleetMap() {
@@ -67,20 +107,60 @@ function createFleetMap() {
   const canvas = h('div', { class: 'map-canvas' });
   element.append(canvas);
 
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const map = new maplibregl.Map({
     container: canvas,
-    style: STYLE(dark),
-    bounds: ALL_BOUNDS,
-    fitBoundsOptions: { padding: 30 },
+    style: STYLE,
+    ...CITY,
+    pitch: TILT,
+    bearing: BEARING,
+    maxPitch: 70,
     cooperativeGestures: true,
-    attributionControl: { compact: false, customAttribution: 'Routes: <a href="https://project-osrm.org">OSRM</a>' },
+    attributionControl: false,
   });
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  // Bottom left, so the details panel can never cover the required credits.
+  map.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: 'Routes: <a href="https://project-osrm.org">OSRM</a>' }), 'bottom-left');
 
   const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
-  const state = { ready: false, view: null, selected: null, hovered: null, focused: null };
+  const state = { ready: false, view: null, selected: null, hovered: null, focused: null, zones: [], tilted: true };
   const api = { element, onPick: () => {}, update };
+
+  const camera = () => ({ pitch: state.tilted ? TILT : 0, bearing: state.tilted ? BEARING : 0 });
+  const time = (duration) => (calm() ? 0 : duration);
+
+  function fitFleet(duration = 700) {
+    map.fitBounds(ALL_BOUNDS, { ...camera(), padding: narrow() ? 30 : { top: 70, bottom: 60, left: 110, right: 110 }, duration: time(duration) });
+  }
+
+  function frame(route, duration = 700) {
+    if (route) {
+      const padding = narrow() ? 30 : { top: 80, bottom: 80, left: 100, right: 460 };
+      const fitted = map.cameraForBounds(boundsOf([route.path]), { ...camera(), padding });
+      // Stay close enough for the buildings to exist, even if a long route runs off the edge.
+      map.easeTo({ ...fitted, ...camera(), zoom: Math.max(fitted.zoom, CITY.zoom), duration: time(duration) });
+    } else if (narrow()) {
+      fitFleet(duration);
+    } else {
+      map.easeTo({ ...CITY, ...camera(), duration: time(duration) });
+    }
+  }
+
+  const dimensions = h('button', {
+    'aria-label': 'Switch between 2D and 3D',
+    onClick: () => {
+      state.tilted = !state.tilted;
+      dimensions.textContent = state.tilted ? '2D' : '3D';
+      map.easeTo({ ...camera(), duration: time(600) });
+    },
+  }, '2D');
+  const needle = h('span', { class: 'needle' }, 'N');
+  element.append(h('div', { class: 'map-controls' },
+    h('button', { 'aria-label': 'Face north', onClick: () => map.easeTo({ bearing: 0, duration: time(500) }) }, needle),
+    dimensions,
+    h('button', { 'aria-label': 'Zoom in', onClick: () => map.zoomIn() }, '+'),
+    h('button', { 'aria-label': 'Zoom out', onClick: () => map.zoomOut() }, '−'),
+    h('button', { 'aria-label': 'Show the whole fleet', title: 'Show the whole fleet', onClick: () => fitFleet() }, '⌂'),
+  ));
+  map.on('rotate', () => { needle.style.transform = `rotate(${-map.getBearing()}deg)`; });
 
   function applyFocus() {
     const id = state.selected ?? state.hovered;
@@ -107,16 +187,12 @@ function createFleetMap() {
       label: `${row.route.id} · ${row.route.area} · ${STATUS[row.status].label}`,
     }))));
     map.getSource('attention').setData(lines(view.decisions.map((d) => d.row.route.path)));
-    map.getSource('zones').setData({
-      type: 'FeatureCollection',
-      features: state.zones.map((zone) => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circlePolygon(zone)] } })),
-    });
+    map.getSource('zones').setData(polygons(state.zones.map((zone) => circlePolygon(zone))));
     applyFocus();
 
     if (selected !== state.focused) {
       state.focused = selected;
-      const route = ROUTES.find((r) => r.id === selected);
-      map.fitBounds(route ? boundsOf([route.path]) : ALL_BOUNDS, { padding: route ? 40 : 24, duration: 500 });
+      frame(ROUTES.find((r) => r.id === selected));
     }
   }
 
@@ -137,19 +213,20 @@ function createFleetMap() {
   });
 
   map.on('load', () => {
+    darkenBaseMap(map);
     for (const [name, draw] of Object.entries(ICONS)) map.addImage(name, icon(draw), { pixelRatio: 2 });
-    map.addSource('zones', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-    map.addLayer({ id: 'zones-fill', type: 'fill', source: 'zones', paint: { 'fill-color': COLORS.bad, 'fill-opacity': 0.14 } });
-    map.addLayer({ id: 'zones-line', type: 'line', source: 'zones', paint: { 'line-color': COLORS.bad, 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+
+    map.addSource('zones', { type: 'geojson', data: polygons([]) });
+    map.addSource('depot', { type: 'geojson', data: polygons([circlePolygon({ center: DEPOT, radiusKm: 0.14 }, 6)]) });
     for (const id of ['attention', 'driven', 'remaining']) map.addSource(id, { type: 'geojson', data: lines([]) });
     for (const id of ['stops', 'vehicles']) map.addSource(id, { type: 'geojson', data: points([]) });
-    map.addSource('depot', { type: 'geojson', data: points([{ at: DEPOT }]) });
 
-    map.addLayer({ id: 'attention', type: 'line', source: 'attention', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': COLORS.warn, 'line-width': 2, 'line-opacity': 0.75 } });
-    map.addLayer({ id: 'driven', type: 'line', source: 'driven', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': COLORS.none, 'line-width': 3 } });
-    map.addLayer({ id: 'remaining', type: 'line', source: 'remaining', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': COLORS.todo, 'line-width': 4 } });
+    map.addLayer({ id: 'zones-3d', type: 'fill-extrusion', source: 'zones', paint: { 'fill-extrusion-color': COLORS.bad, 'fill-extrusion-height': 130, 'fill-extrusion-opacity': 0.42 } });
+    map.addLayer({ id: 'depot-3d', type: 'fill-extrusion', source: 'depot', paint: { 'fill-extrusion-color': COLORS.todo, 'fill-extrusion-height': 170, 'fill-extrusion-opacity': 0.75 } });
+    glowLine(map, 'attention', COLORS.bad, 3);
+    map.addLayer({ id: 'driven', type: 'line', source: 'driven', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': COLORS.driven, 'line-width': 3 } });
+    glowLine(map, 'remaining', COLORS.todo, 4);
     map.addLayer({ id: 'stops', type: 'circle', source: 'stops', paint: { 'circle-radius': 4, 'circle-color': '#ffffff', 'circle-stroke-color': COLORS.todo, 'circle-stroke-width': 2 } });
-    map.addLayer({ id: 'depot', type: 'symbol', source: 'depot', layout: { 'icon-image': 'depot', 'icon-allow-overlap': true } });
     map.addLayer({ id: 'vehicles', type: 'symbol', source: 'vehicles', layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'symbol-sort-key': ['get', 'order'] } });
 
     map.on('click', 'vehicles', (event) => api.onPick(event.features[0].properties.id));
@@ -171,7 +248,8 @@ function createFleetMap() {
 
     state.ready = true;
     map.resize();
-    map.fitBounds(ALL_BOUNDS, { padding: 24, duration: 0 });
+    frame(ROUTES.find((r) => r.id === state.selected), 0);
+    state.focused = state.selected;
     if (state.view) applyView();
   });
 

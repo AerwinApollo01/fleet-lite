@@ -14,6 +14,7 @@ import { mountLearn } from './learn.js';
 import { createFleetWorld } from '../scenarios/fleet.js';
 import { alertSummary } from '../scenarios/alerts.js';
 import { ROLES, SCREENS } from '../core/roles.js';
+import { icon } from './icons.js';
 
 const MOUNTS = {
   operator: mountOperator, alerts: mountAlerts, maintenance: mountMaintenance, reports: mountReports, learn: mountLearn,
@@ -23,8 +24,10 @@ const DEFAULT_PERSONA = 'owner';
 
 const world = createFleetWorld();
 const content = h('main', { id: 'content' });
-const personaBar = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Persona' });
-const sidebar = h('aside', { class: 'sidebar' });
+const screens = h('nav', { class: 'rail-nav', 'aria-label': 'Screens' });
+const personaMenu = h('div', { class: 'persona-menu', role: 'group', 'aria-label': 'Choose a persona' });
+const personaButton = h('button', { class: 'rail-persona', onClick: () => { menuOpen = !menuOpen; renderChrome(); } });
+let menuOpen = false;
 let current = { role: DEFAULT_PERSONA, tab: ROLES[DEFAULT_PERSONA].tabs[0] };
 
 // The address is the source of truth, so back, refresh, and bookmarks all work.
@@ -48,22 +51,27 @@ function renderChrome() {
   const persona = ROLES[current.role];
   const unread = alertSummary(world).unread;
 
-  personaBar.replaceChildren(...Object.entries(ROLES).map(([id, role]) => h('button', {
-    class: id === current.role ? 'active' : '',
-    'aria-pressed': id === current.role ? 'true' : 'false',
-    title: role.label,
-    onClick: () => open(id, role.tabs[0]),
-  }, role.short)));
+  screens.replaceChildren(...persona.groups.flatMap((group) => [
+    persona.groups.length > 2 && group.label !== 'Help' && h('span', { class: 'rail-group' }, group.label),
+    ...group.tabs.map((tab) => h('button', {
+      class: 'rail-item',
+      'aria-current': tab === current.tab ? 'page' : null,
+      onClick: () => open(current.role, tab),
+    }, icon(tab), h('span', {}, SCREENS[tab]), tab === 'alerts' && unread > 0 && h('span', { class: 'nav-count', 'aria-label': `${unread} unread` }, unread))),
+  ].filter(Boolean)));
 
-  sidebar.replaceChildren(
-    h('div', { class: 'persona-summary' }, h('strong', {}, persona.label), persona.summary),
-    h('nav', { 'aria-label': `${persona.label} screens` }, persona.groups.map((group) => h('div', { class: 'nav-group' },
-      h('span', {}, group.label),
-      group.tabs.map((tab) => h('button', {
-        'aria-current': tab === current.tab ? 'page' : null,
-        onClick: () => open(current.role, tab),
-      }, SCREENS[tab], tab === 'alerts' && unread > 0 && h('span', { class: 'nav-count', 'aria-label': `${unread} unread` }, unread))),
-    ))),
+  personaButton.replaceChildren(h('span', { class: 'persona-ring' }, icon('person')), h('span', {}, persona.short));
+  personaButton.setAttribute('aria-expanded', String(menuOpen));
+  personaButton.setAttribute('aria-label', `Persona: ${persona.label}. Change persona`);
+
+  personaMenu.hidden = !menuOpen;
+  personaMenu.replaceChildren(
+    h('p', { class: 'hud-kicker' }, 'I am a'),
+    ...Object.entries(ROLES).map(([id, role]) => h('button', {
+      class: id === current.role ? 'persona-option active' : 'persona-option',
+      'aria-pressed': id === current.role ? 'true' : 'false',
+      onClick: () => { menuOpen = false; open(id, role.tabs[0]); },
+    }, h('strong', {}, role.label), h('span', {}, role.summary))),
   );
 }
 
@@ -75,18 +83,26 @@ function show() {
   renderChrome();
   const view = h('div', {});
   content.replaceChildren(view);
+  content.className = current.tab === 'operator' ? 'bleed' : '';
   MOUNTS[current.tab](view, { world, goTo });
   window.scrollTo(0, 0);
 }
 
 world.onChange = renderChrome;
 window.addEventListener('hashchange', show);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && menuOpen) { menuOpen = false; renderChrome(); }
+});
 
 document.querySelector('#app').append(
-  h('header', { class: 'topbar' },
-    h('div', { class: 'brand' }, h('strong', {}, 'fleet-lite'), h('span', { class: 'muted' }, 'Simulated data, assumed numbers')),
-    h('div', { class: 'persona-picker' }, h('span', { class: 'label inline' }, 'I am a'), personaBar),
+  h('div', { class: 'shell' },
+    h('aside', { class: 'rail' },
+      h('div', { class: 'rail-brand', title: 'Simulated data, assumed numbers' }, h('strong', {}, 'fleet'), h('span', {}, 'lite')),
+      screens,
+      personaButton,
+      personaMenu,
+    ),
+    content,
   ),
-  h('div', { class: 'shell' }, sidebar, content),
 );
 show();

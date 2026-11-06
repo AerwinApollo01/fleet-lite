@@ -235,6 +235,19 @@ describe('R37 reliability shows patterns the fleet can act on', () => {
     expect(sum('Hardware')).toBe(failures);
   });
 
+  it('weekly counts cover recent failures and grow as time passes', () => {
+    const world = createFleetWorld(1000);
+    const before = componentReliability(world).find((p) => p.id === 'tires');
+    expect(before.weekly).toHaveLength(12);
+    const sum = (weeks) => weeks.reduce((total, count) => total + count, 0);
+    expect(sum(before.weekly)).toBeGreaterThan(0);
+    expect(sum(before.weekly)).toBeLessThan(before.failures);
+    advanceFleet(world, 24 * 7);
+    const after = componentReliability(world).find((p) => p.id === 'tires');
+    expect(after.weekly.slice(0, 11)).toEqual(before.weekly.slice(1));
+    expect(after.failures - before.failures).toBeGreaterThan(0);
+  });
+
   it('a software rollout fault doesn’t change hardware reliability', () => {
     const world = createFleetWorld();
     const before = componentReliability(world).find((p) => p.id === 'vcu').failures;

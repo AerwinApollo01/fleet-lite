@@ -7,6 +7,7 @@ import { advanceFleet, resetFleet } from '../scenarios/fleet.js';
 import { badge, h, panel } from './dom.js';
 import { fleetGrid } from './fleetgrid.js';
 import { saveFleetSize, SIZES } from './fleetsize.js';
+import { weeklyColumns } from './charts.js';
 import { schematic } from './schematic.js';
 
 const TONE = { 'On route': 'good', 'At depot': 'neutral', Spare: 'neutral', Faulted: 'bad', Installed: 'neutral', Ready: 'good', Charging: 'warn' };
@@ -183,7 +184,9 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
     const flaggedCount = register.vehicles.filter((v) => v.flagged.includes(part.id)).length;
     const kinds = [...new Set(groups.map((group) => group.kind))];
     return h('div', { class: 'part-detail' },
-      h('h3', {}, `${part.label}: failures per 100,000 km`),
+      h('h3', {}, part.label),
+      weeklyColumns(part.weekly, 'Failures per week'),
+      h('p', { class: 'label' }, 'Failures per 100,000 km'),
       h('div', { class: 'part-kinds' }, kinds.map((kind) => h('div', {},
         h('p', { class: 'label' }, kind),
         groups.filter((group) => group.kind === kind).map((group) => h('div', { class: 'bar-row', title: `${group.failures} failures over ${km(group.km)}` },
@@ -225,7 +228,10 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
       findings.length > 0
         ? h('p', { class: 'callout warn' }, findings.map((part) => `${part.label}: ${part.finding.label} fails ${part.finding.timesRest}× as often as the rest.`).join(' '))
         : h('p', { class: 'callout neutral' }, 'No supplier or hardware group stands out yet. With a small fleet, most differences are chance. Try a larger demo fleet.'),
-      panel('Fleet system view', fleetDiagram(parts, selected)),
+      h('div', { class: 'tw-layout' },
+        h('section', { class: 'panel tw-main' }, h('h3', {}, 'Fleet system view'), fleetDiagram(parts, selected)),
+        h('aside', { class: 'tw-inspector', 'aria-label': 'Part reliability' }, partDetail(selected)),
+      ),
       panel('Reliability by part',
         h('div', { class: 'table-wrap' }, h('table', {},
           h('thead', {}, h('tr', {}, ['Part', 'System', 'Open now', 'Failures', 'Per 100,000 km', 'Distance between failures'].map((text) => h('th', {}, text)))),
@@ -240,7 +246,6 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
         )),
         h('p', { class: 'muted small' }, 'Failures are simulated. Distance between failures is total distance divided by failures, so it describes the fleet, not when one part will fail.'),
       ),
-      panel(selected.label, partDetail(selected)),
     );
   }
 

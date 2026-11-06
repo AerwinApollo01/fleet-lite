@@ -9,53 +9,11 @@ import { readyPacks } from '../scenarios/packs.js';
 import { badge, h } from './dom.js';
 import { firmwarePanels } from './firmware.js';
 import { schematic } from './schematic.js';
+import { sparkline } from './charts.js';
 import { CONDITION, listNeighbors } from './assets.js';
 
-const SVG = 'http://www.w3.org/2000/svg';
 const STATE_BADGE = { fault: ['✕ Fault', 'bad'], watch: ['! Watch', 'warn'], ok: ['✓ Healthy', 'good'], absent: ['Not fitted', 'neutral'] };
 const km = (value) => `${value.toLocaleString('en-US')} km`;
-
-function sparkline(signal) {
-  const [W, H, PAD] = [320, 96, 6];
-  const values = signal.points.map((p) => p.value);
-  const lo = Math.min(...values, signal.limit);
-  const hi = Math.max(...values, signal.limit);
-  const span = hi - lo || 1;
-  const x = (i) => PAD + (i / (values.length - 1)) * (W - PAD * 2);
-  const y = (v) => H - PAD - ((v - lo) / span) * (H - PAD * 2);
-  const unit = signal.unit === '%' || signal.unit === '°C' ? signal.unit : signal.unit ? ` ${signal.unit}` : '';
-  const line = values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-  const chart = h('div', { class: 'spark' });
-  const tip = h('div', { class: 'chart-tip', hidden: true });
-  chart.innerHTML = `<svg xmlns="${SVG}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${signal.label} over 30 days, now ${values.at(-1)}${unit}, limit ${signal.limit}${unit}">
-    <line class="spark-limit" x1="${PAD}" x2="${W - PAD}" y1="${y(signal.limit)}" y2="${y(signal.limit)}"/>
-    <path class="spark-line" d="${line}"/>
-    <circle class="spark-end" cx="${x(values.length - 1)}" cy="${y(values.at(-1))}" r="4"/>
-    <circle class="spark-hover" r="4" hidden/>
-  </svg>`;
-  chart.append(tip);
-  const dot = chart.querySelector('.spark-hover');
-  chart.addEventListener('mousemove', (event) => {
-    const box = chart.getBoundingClientRect();
-    const i = Math.max(0, Math.min(values.length - 1, Math.round(((event.clientX - box.left) / box.width) * (values.length - 1))));
-    const point = signal.points[i];
-    dot.removeAttribute('hidden');
-    dot.setAttribute('cx', x(i));
-    dot.setAttribute('cy', y(point.value));
-    tip.hidden = false;
-    tip.replaceChildren(h('strong', {}, `${point.value}${unit}`), h('span', {}, point.ago === 0 ? 'Latest' : `${point.ago} day${point.ago === 1 ? '' : 's'} ago`));
-    tip.style.left = `${Math.min(event.clientX - box.left + 10, box.width - tip.offsetWidth - 2)}px`;
-    tip.style.top = '4px';
-  });
-  chart.addEventListener('mouseleave', () => { tip.hidden = true; dot.setAttribute('hidden', ''); });
-  return h('div', {},
-    h('div', { class: 'spark-head' },
-      h('span', {}, signal.label, ' ', badge(signal.provenance === 'measured' ? 'Measured' : 'Estimate', signal.provenance === 'measured' ? 'neutral' : 'warn')),
-      h('strong', {}, `${values.at(-1)}${unit}`)),
-    chart,
-    h('div', { class: 'spark-axis muted' }, h('span', {}, '30 days ago'), h('span', {}, `Dashed line: ${signal.lowerIsWorse ? 'replace at' : 'limit'} ${signal.limit}${unit}`), h('span', {}, 'Latest')),
-  );
-}
 
 export function mountTwin(root, { world, vin, component, openAsset, closeAsset, setComponent }) {
   let tab = component === 'firmware' ? 'firmware' : 'parts';
@@ -134,15 +92,15 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
 
   function showTab(next) {
     tab = next;
-    setComponent(next === 'firmware' ? 'firmware' : selected);
     draw();
+    setComponent(next === 'firmware' ? 'firmware' : selected);
   }
 
   function draw() {
     const twin = vehicleTwin(world, vin);
     fleetParts = componentReliability(world);
     const ranked = twin.components.filter((c) => c.state !== 'absent').sort((a, b) => STATE[a.state].rank - STATE[b.state].rank);
-    if (tab === 'parts' && (!selected || !twin.components.some((c) => c.id === selected))) selected = ranked[0].id;
+    if (!selected || !twin.components.some((c) => c.id === selected)) selected = ranked[0].id;
     const around = listNeighbors(vin);
     const flagged = ranked.filter((c) => c.state === 'fault' || c.state === 'watch');
 
@@ -205,7 +163,7 @@ export function mountTwin(root, { world, vin, component, openAsset, closeAsset, 
   }
 
   function firmwareLayout(twin) {
-    const panels = firmwarePanels({ world, vin, ui: fw, selected, refresh: draw });
+    const panels = firmwarePanels({ world, vin, ui: fw, selected, signal: twin.components.find((c) => c.id === selected)?.signal ?? null, refresh: draw });
     const mapped = {
       ...twin,
       components: twin.components.map((part) => ({ ...part, ...(panels.states[part.id] ?? { state: 'absent', stateLabel: part.state === 'absent' ? 'Not fitted' : 'No over-the-air firmware' }) })),

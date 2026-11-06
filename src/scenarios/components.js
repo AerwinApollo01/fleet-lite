@@ -27,6 +27,7 @@ const PRECURSOR = 10 * DAY; // A failing part drifts toward its limit for this l
 const WATCH_RAMP = 0.6; // How far toward the limit counts as worth watching.
 const HORIZON_KM = 60000;
 const TREND_DAYS = 30;
+const TREND_WEEKS = 12;
 const MIN_FAILURES = 5;
 const MIN_RATIO = 1.5;
 const MIN_Z = 2;
@@ -273,6 +274,7 @@ export function componentReliability(world) {
   const repairs = repairIndex(world);
   return COMPONENTS.map((component) => {
     const total = { failures: 0, km: 0, open: 0, vehicles: 0 };
+    const weekly = Array(TREND_WEEKS).fill(0);
     const groups = new Map();
     const add = (key, label, kind, failures, km) => {
       const group = groups.get(key) ?? { key, label, kind, failures: 0, km: 0 };
@@ -285,6 +287,10 @@ export function componentReliability(world) {
       const { seen, open } = classify(vehicle, component, repairs, knownUntilFor(world, vehicle));
       const km = odometerKm(world, vehicle);
       total.vehicles += 1;
+      for (const event of seen) {
+        const weeksAgo = Math.floor((world.now - event.at) / (7 * DAY));
+        if (weeksAgo < TREND_WEEKS) weekly[TREND_WEEKS - 1 - weeksAgo] += 1;
+      }
       total.failures += seen.length;
       total.km += km;
       total.open += open.length;
@@ -300,7 +306,7 @@ export function componentReliability(world) {
       vehicles: total.vehicles, failures: total.failures, open: total.open, km: total.km,
       per100k: per100k(total.failures, total.km),
       mtbfKm: total.failures > 0 ? Math.round(total.km / total.failures) : null,
-      breakdown, finding,
+      breakdown, finding, weekly,
     };
   }).sort((a, b) => b.per100k - a.per100k);
 }

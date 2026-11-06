@@ -3,6 +3,7 @@ import { can, roleOf } from '../core/roles.js';
 import { formatTime } from '../core/time.js';
 import { advanceFleet } from '../scenarios/fleet.js';
 import { firmwareView, hoursToOffShift, NOT_UPDATABLE, runUpdate, startUpdate, stepUpdate, TIERS } from '../scenarios/firmware.js';
+import { sparkline } from './charts.js';
 import { badge, h, table } from './dom.js';
 
 const RESULT = { done: ['Installed', 'good'], reverted: ['Rolled back', 'warn'], stopped: ['Stopped', 'warn'], 'needs-service': ['Needs a technician', 'bad'] };
@@ -18,7 +19,7 @@ function versionCell(row) {
   return row.version === row.inRelease ? row.version : h('span', {}, row.version, ' ', badge(`Set: ${row.inRelease}`, 'warn'));
 }
 
-export function firmwarePanels({ world, vin, ui, selected, refresh }) {
+export function firmwarePanels({ world, vin, ui, selected, signal, refresh }) {
   const view = firmwareView(world, vin);
   const role = roleOf(world);
   const allowed = can(role, 'firmware.update');
@@ -104,6 +105,7 @@ export function firmwarePanels({ world, vin, ui, selected, refresh }) {
       h('h3', {}, 'Firmware by part'),
       none && h('p', { class: 'callout neutral' }, `${none.label}: ${none.note}`),
       picked && h('p', { class: 'callout neutral' }, `${picked.label} runs ${picked.version}. ${slotText(picked)}.`),
+      signal && h('div', { class: 'fw-signal' }, h('p', { class: 'muted small' }, 'Watch this after an update. A signal that shifts can mean the new firmware changed something.'), sparkline(signal)),
       ['system', 'domain', 'component'].map(tierSection),
       h('div', { class: 'fw-tier' },
         h('h4', {}, 'No over-the-air firmware'),

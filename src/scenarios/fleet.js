@@ -8,6 +8,7 @@ import { createTwin, reconcile, setDesired } from '../sdv/twin.js';
 import { createAlertState, evaluateAlerts } from './alerts.js';
 import { createReportState, recordHour } from './reports.js';
 import { anyUpdateRunning, applyRelease, createFirmware } from './firmware.js';
+import { stepIssues } from './issues.js';
 import { createPackState } from './packs.js';
 
 export const OWNER = 'Release owner';
@@ -50,11 +51,11 @@ export function createFleetWorld(count = 60) {
     faulted: false,
     pinnedOffline: false,
   }));
-  for (const vehicle of fleet) Object.assign(vehicle, { firmware: createFirmware(vehicle, FACTORY_VERSION), firmwareHistory: [] });
+  for (const vehicle of fleet) Object.assign(vehicle, { firmware: createFirmware(vehicle, FACTORY_VERSION), firmwareHistory: [], fixes: [] });
   const now = at(1, 10);
   applyConnectivity(fleet, now);
   const world = {
-    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [], updates: {}, firmwareLog: [], eventLogs: {},
+    now, fleet, campaign: null, rollout: null, excluded: [], swaps: {}, swapLog: [], serviceOrders: [], updates: {}, firmwareLog: [], eventLogs: {}, issues: [],
     ...createPackState(fleet, now),
     ...createAlertState(),
     ...createReportState(),
@@ -126,6 +127,21 @@ export function startRollout(world, rolloutId) {
   });
 }
 
+// A targeted fix goes through the same staged, gated path as any other rollout.
+export function startFixRollout(world, { id, label, build, vins, applier }) {
+  if (rolloutActive(world)) throw new Error('Finish or roll back the current campaign first');
+  if (anyUpdateRunning(world)) throw new Error('Finish the vehicle update first');
+  const targets = new Set(vins);
+  world.rollout = { id, kind: 'firmware', label, build, faultRate: HEALTHY };
+  world.excluded = [];
+  world.campaign = createCampaign({
+    id: `${id}-${world.now}`, fromVersion: 'without the fix', toVersion: build, owner: OWNER, startAt: world.now,
+    stages: [{ name: 'Canary', share: 0.1 }, { name: 'Early', share: 0.3 }, { name: 'Full fleet', share: 1 }],
+    gate: { metric: 'post-install faults', maxRate: 0.1, soakMinutes: 24 * HOUR, minSample: 5 },
+    eligible: (v) => targets.has(v.vin), applier,
+  });
+}
+
 export function advanceFleet(world, hours) {
   for (let i = 0; i < hours; i++) {
     world.now += HOUR;
@@ -137,6 +153,7 @@ export function advanceFleet(world, hours) {
     if (world.campaign) {
       step(world.campaign, world.fleet, world.now, faultModel(world.rollout.faultRate));
     }
+    stepIssues(world);
     evaluateAlerts(world);
     recordHour(world);
   }

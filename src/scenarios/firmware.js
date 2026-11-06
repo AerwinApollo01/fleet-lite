@@ -45,6 +45,7 @@ export const RELEASES = {
 export const PATCHES = [
   { id: 'patch-proximity', label: 'Proximity sensor 1.0.2', part: 'proximity', version: '1.0.2', note: 'Fewer false blocked readings' },
   { id: 'patch-bms', label: 'Battery management patch', part: 'bms', version: { alpha: '3.1.1', bravo: '5.2.2' }, note: 'Better cell sensor filtering' },
+  { id: 'patch-vcu', label: 'Vehicle computer 1.4.3', part: 'vcu', version: '1.4.3', note: 'Lighter load on the watchdog' },
   { id: 'patch-inverter', label: 'Motor controller 4.1.0', part: 'inverter', version: '4.1.0', note: 'New torque message' },
 ];
 
@@ -73,6 +74,22 @@ export function createFirmware(vehicle, releaseId) {
     const version = releaseVersion(releaseId, target.id, vehicle);
     return [target.id, { version, spare: target.slots === 2 ? version : null, slot: target.slots === 2 ? 'A' : null, state: 'ok' }];
   }));
+}
+
+// A targeted patch from a fleet campaign. A vehicle already past it keeps its newer version.
+export function applyPatch(vehicle, patchId) {
+  const patch = PATCHES.find((item) => item.id === patchId);
+  const entry = vehicle.firmware[patch.part];
+  const version = pickVersion(patch.version, vehicle);
+  if (compareVersions(version, entry.version) <= 0) return;
+  const target = targetById(patch.part);
+  if (target.slots === 2) Object.assign(entry, { spare: entry.version, slot: entry.slot === 'A' ? 'B' : 'A' });
+  entry.version = version;
+}
+
+export function revertPatch(vehicle, patchId) {
+  const patch = PATCHES.find((item) => item.id === patchId);
+  vehicle.firmware[patch.part].version = releaseVersion(vehicle.version, patch.part, vehicle);
 }
 
 // What a fleet campaign does when it reaches a vehicle.

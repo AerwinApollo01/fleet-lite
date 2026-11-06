@@ -41,6 +41,7 @@ for its job (R28, R30). Learn is available to everyone. Each view has its own li
 | Assets | Vehicles, packs, and parts at any fleet size: a fleet grid, facet filters, search, and paging. The demo fleet goes up to 5,000 | R32–R33, R35, R37 |
 | Vehicle system view | Opens from Assets. A diagram of the parts and how they connect, with faults, signals, reliability, and what stops if a part fails | R36 |
 | Operating ranges and event log | Each part's normal, caution, and limit bands, a plain verdict for owners, and a full log for specialists | R40–R41 |
+| Issues | Assets view that takes a finding through options, costs, a fix, and a measured result | R42 |
 | Vehicle firmware | A view in Assets for the whole fleet, and a tab on each vehicle: what every part runs, and an update you can step through and break | R38–R39 |
 | Maintenance | What's due, work orders, and what's broken | R26 |
 | Reports | Closed days, CSV export, and who had a vehicle at a given time | R27 |
@@ -102,6 +103,8 @@ running something to pass.
   one step rather than running each vehicle's install steps.
 - **Operating ranges are assumptions.** Real ones come from supplier specs and validation, and they
   don't vary by mode yet, such as driving versus charging. CAN frames in the log are illustrative.
+- **Issue costs are assumptions.** The effect of a fix is simulated, and results compare against the old
+  rate with no control group, so they can't rule out other causes.
 - **Part faults and signals are simulated.** They come from fixed failure rates, including two planted
   problems for the Parts view to find. Codes are made up. Pack, service, firmware, and compute values
   come from the app's real records.

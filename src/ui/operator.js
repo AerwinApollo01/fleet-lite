@@ -10,12 +10,12 @@ import { CATALOG } from '../sdv/catalog.js';
 import { badge, h, panel } from './dom.js';
 import { getFleetMap } from './fleetmap.js';
 
-const TONE = { ON_TRACK: 'good', UNCONFIRMED: 'neutral', NO_FORECAST: 'neutral', AT_RISK: 'warn', WONT_FINISH: 'bad', OUT_OF_SERVICE: 'bad' };
-const MARK = { ON_TRACK: 'st-good', UNCONFIRMED: 'st-none', NO_FORECAST: 'st-none', AT_RISK: 'st-warn', WONT_FINISH: 'st-bad', OUT_OF_SERVICE: 'st-bad' };
-const BAR_ORDER = ['ON_TRACK', 'UNCONFIRMED', 'NO_FORECAST', 'AT_RISK', 'WONT_FINISH', 'OUT_OF_SERVICE'];
+const TONE = { ON_TRACK: 'good', UNCONFIRMED: 'neutral', NO_FORECAST: 'neutral', AT_RISK: 'warn', PART_FAULT: 'warn', WONT_FINISH: 'bad', OUT_OF_SERVICE: 'bad' };
+const MARK = { ON_TRACK: 'st-good', UNCONFIRMED: 'st-none', NO_FORECAST: 'st-none', AT_RISK: 'st-warn', PART_FAULT: 'st-warn', WONT_FINISH: 'st-bad', OUT_OF_SERVICE: 'st-bad' };
+const BAR_ORDER = ['ON_TRACK', 'UNCONFIRMED', 'NO_FORECAST', 'AT_RISK', 'PART_FAULT', 'WONT_FINISH', 'OUT_OF_SERVICE'];
 const FILTERS = [
   ['all', 'All routes', () => true],
-  ['decide', 'Needs a decision', (r) => ['AT_RISK', 'WONT_FINISH', 'OUT_OF_SERVICE'].includes(r.status)],
+  ['decide', 'Needs a decision', (r) => ['AT_RISK', 'PART_FAULT', 'WONT_FINISH', 'OUT_OF_SERVICE'].includes(r.status)],
   ['signal', 'No signal', (r) => !r.vehicle.online],
   ['swapped', 'Swapped', (r) => r.swapped],
 ];

@@ -13,7 +13,7 @@ const STYLE = 'https://tiles.openfreemap.org/styles/dark';
 const COLORS = { good: '#39ff88', warn: '#ffc21a', bad: '#ff2d3f', none: '#9aa4ad', todo: '#22e3ff', driven: '#5d6871' };
 const ICON_FOR = {
   ON_TRACK: 'on-track', UNCONFIRMED: 'no-signal', NO_FORECAST: 'no-signal',
-  AT_RISK: 'at-risk', WONT_FINISH: 'critical', OUT_OF_SERVICE: 'critical',
+  AT_RISK: 'at-risk', PART_FAULT: 'at-risk', WONT_FINISH: 'critical', OUT_OF_SERVICE: 'critical',
 };
 const TILT = 60;
 const BEARING = -18;

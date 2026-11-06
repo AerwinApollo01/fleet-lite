@@ -28,6 +28,7 @@ const SUSTAIN_DAYS = 3; // A brief spike doesn't change anyone's status.
 const HORIZON_KM = 60000;
 const TREND_DAYS = 30;
 const LATE_SHARE = 0.15;
+const CRITICAL = ['bms', 'inverter', 'motor', 'brakes', 'vcu'];
 const TREND_WEEKS = 12;
 const MIN_FAILURES = 5;
 const MIN_RATIO = 1.5;
@@ -143,18 +144,25 @@ function repairIndex(world) {
   return index;
 }
 
+// A fix removes a share of the failures that would have come later. It never touches the past.
+function fixPreventing(vehicle, component, event) {
+  return vehicle.fixes.find((fix) => fix.part === component.id && event.at > fix.at && event.at < (fix.until ?? Infinity)
+    && hash01(`${vehicle.vin}:${component.id}:${event.at}:fix`) >= fix.keep) ?? null;
+}
+
 // A repair closes what already happened, and heads off a failure that was still building.
 function classify(vehicle, component, repairs, knownUntil, now) {
   const done = repairs.get(`${vehicle.vin}:${component.id}`) ?? [];
-  const schedule = failureSchedule(vehicle, component);
+  const planned = failureSchedule(vehicle, component);
+  const schedule = planned.filter((event) => !fixPreventing(vehicle, component, event));
   const events = schedule.filter((event) => !done.some((at) => at < event.at && at >= event.at - PRECURSOR));
   const repaired = (event) => done.some((at) => at >= event.at);
   const seen = events.filter((event) => event.at <= knownUntil && event.receivedAt <= now);
   const open = seen.filter((event) => !repaired(event) && event.at >= -OPEN_WINDOW);
   // How each failure bent the signal, and when that stopped. Past readings stay as they were.
-  const drifts = schedule.filter((event) => event.at - PRECURSOR <= knownUntil).map((event) => ({
+  const drifts = planned.filter((event) => event.at - PRECURSOR <= knownUntil).map((event) => ({
     from: event.at - PRECURSOR,
-    until: done.find((at) => at >= event.at - PRECURSOR) ?? (event.at < -OPEN_WINDOW ? event.at + 3 * DAY : Infinity),
+    until: fixPreventing(vehicle, component, event)?.at ?? done.find((at) => at >= event.at - PRECURSOR) ?? (event.at < -OPEN_WINDOW ? event.at + 3 * DAY : Infinity),
   }));
   return { seen, open, drifts, repaired };
 }
@@ -272,6 +280,24 @@ export function faultEvents(world, vin) {
   const knownUntil = knownUntilFor(world, vehicle);
   return COMPONENTS.filter((component) => fitted(vehicle, component))
     .flatMap((component) => classify(vehicle, component, repairs, knownUntil, world.now).seen);
+}
+
+export function failuresOf(world, vehicle, partId) {
+  const component = componentById(partId);
+  return fitted(vehicle, component) ? classify(vehicle, component, repairIndex(world), knownUntilFor(world, vehicle), world.now).seen : [];
+}
+
+export const hasPart = (vehicle, partId) => fitted(vehicle, componentById(partId));
+
+// A serious, open fault on a part the vehicle can't safely run without.
+export function criticalFault(world, vehicle) {
+  const repairs = repairIndex(world);
+  const known = knownUntilFor(world, vehicle);
+  for (const component of COMPONENTS.filter((item) => CRITICAL.includes(item.id) && fitted(vehicle, item))) {
+    const event = classify(vehicle, component, repairs, known, world.now).open.find((item) => item.severity === 'fault');
+    if (event) return { label: component.label, title: event.title };
+  }
+  return null;
 }
 
 export const knownUntil = (world, vin) => knownUntilFor(world, world.fleet.find((v) => v.vin === vin));

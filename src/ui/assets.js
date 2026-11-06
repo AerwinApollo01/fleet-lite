@@ -7,19 +7,20 @@ import { advanceFleet, resetFleet } from '../scenarios/fleet.js';
 import { fleetFirmware } from '../scenarios/firmware.js';
 import { badge, h, panel } from './dom.js';
 import { fleetGrid } from './fleetgrid.js';
+import { issuesLens } from './issues.js';
 import { saveFleetSize, SIZES } from './fleetsize.js';
 import { weeklyColumns } from './charts.js';
 import { schematic } from './schematic.js';
 
 const TONE = { 'On route': 'good', 'At depot': 'neutral', Spare: 'neutral', Faulted: 'bad', Installed: 'neutral', Ready: 'good', Charging: 'warn' };
 export const CONDITION = { fault: ['✕ Fault', 'bad'], watch: ['! Watch', 'warn'], ok: ['✓ Healthy', 'neutral'] };
-const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts reliability'], ['firmware', 'Firmware']];
+const LENSES = [['vehicles', 'Vehicles'], ['packs', 'Battery packs'], ['components', 'Parts reliability'], ['firmware', 'Firmware'], ['issues', 'Issues']];
 const PAGE_SIZE = 50;
 const DEFAULT_SORT = { key: 'condition', dir: 'asc' };
 const km = (value) => `${value.toLocaleString('en-US')} km`;
 
 const ui = {
-  lens: 'vehicles', search: '', page: 1, selected: null, part: null, ids: [],
+  lens: 'vehicles', search: '', page: 1, selected: null, part: null, ids: [], issues: { issue: null, error: null },
   filters: { vehicles: {}, packs: {} }, sort: { vehicles: DEFAULT_SORT, packs: DEFAULT_SORT },
 };
 
@@ -39,7 +40,7 @@ const sameFilters = (a, b) => {
   return clean(a) === clean(b);
 };
 
-export function mountAssets(root, { world, openAsset, missing = null }) {
+export function mountAssets(root, { world, openAsset, goTo, missing = null }) {
   let register;
   const openVehicle = (id) => openAsset(id);
   const setPage = (page) => { ui.page = page; drawList(); };
@@ -227,7 +228,9 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
     const selected = parts.find((part) => part.id === ui.part) ?? findings[0] ?? parts[0];
     return h('div', {},
       findings.length > 0
-        ? h('p', { class: 'callout warn' }, findings.map((part) => `${part.label}: ${part.finding.label} fails ${part.finding.timesRest}× as often as the rest.`).join(' '))
+        ? h('div', { class: 'callout warn fw-cta' },
+            h('p', {}, findings.map((part) => `${part.label}: ${part.finding.label} fails ${part.finding.timesRest}× as often as the rest.`).join(' ')),
+            h('button', { onClick: () => { ui.lens = 'issues'; render(); } }, 'Go to Issues'))
         : h('p', { class: 'callout neutral' }, 'No supplier or hardware group stands out yet. With a small fleet, most differences are chance. Try a larger demo fleet.'),
       h('div', { class: 'tw-layout' },
         h('section', { class: 'panel tw-main' }, h('h3', {}, 'Fleet system view'), fleetDiagram(parts, selected)),
@@ -322,6 +325,15 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
     else if (ui.ids.length === 1) openVehicle(ui.ids[0]);
   }
 
+  function setFleetSize(size) {
+    resetFleet(world, size);
+    saveFleetSize(size);
+    ui.page = 1;
+    ui.selected = null;
+    ui.issues.issue = null;
+    render();
+  }
+
   function render() {
     register = assetRegister(world);
     const { summary } = register;
@@ -338,7 +350,7 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
             h('span', { class: 'muted' }, 'Demo fleet'),
             h('select', {
               'aria-label': 'Demo fleet size. Changing this restarts the simulation.',
-              onChange: (event) => { const size = Number(event.target.value); resetFleet(world, size); saveFleetSize(size); ui.page = 1; ui.selected = null; render(); },
+              onChange: (event) => setFleetSize(Number(event.target.value)),
             }, SIZES.map((size) => h('option', { value: size, selected: size === world.fleet.length }, size.toLocaleString('en-US')))),
           ),
           h('button', { onClick: () => { advanceFleet(world, 1); render(); } }, '+1 hour'),
@@ -367,6 +379,7 @@ export function mountAssets(root, { world, openAsset, missing = null }) {
       ),
       ui.lens === 'components' && partsView(),
       ui.lens === 'firmware' && firmwareLens(),
+      ui.lens === 'issues' && issuesLens({ world, ui: ui.issues, refresh: render, setFleetSize, goTo }),
       isList && h('div', { class: 'asset-layout' }, side, h('div', { class: 'asset-main' }, grid, h('section', { class: 'panel' }, results))),
       drawer,
     ].filter(Boolean));

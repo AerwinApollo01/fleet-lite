@@ -12,6 +12,7 @@ import { runRangeApp } from '../sdv/apps.js';
 import { BATTERY_SUPPLIERS, createHal } from '../sdv/hal.js';
 import { HARDWARE } from '../sdv/hardware.js';
 import { resolveCapabilities } from '../sdv/resolver.js';
+import { criticalFault } from './components.js';
 
 export const POLICY = createClaimPolicy({ owner: 'Fleet product owner', reserveKm: 2 });
 
@@ -21,6 +22,7 @@ export const STATUS = {
   NO_FORECAST: { label: 'No forecast', icon: '–', rank: 5 },
   AT_RISK: { label: 'At risk', icon: '!', rank: 2 },
   WONT_FINISH: { label: 'Won’t finish', icon: '✕', rank: 1 },
+  PART_FAULT: { label: 'Part fault', icon: '!', rank: 1.5 },
   OUT_OF_SERVICE: { label: 'Out of service', icon: '✕', rank: 0 },
 };
 
@@ -133,6 +135,7 @@ function evaluate(world, vehicle, route, { fresh = false, withPack = null } = {}
 
 function statusOf(vehicle, facts) {
   if (vehicle.faulted) return 'OUT_OF_SERVICE';
+  if (facts.partFault) return 'PART_FAULT';
   if (!facts.capabilities.active.includes('range-forecast')) return 'NO_FORECAST';
   if (facts.claim.status === 'WONT_FINISH') return 'WONT_FINISH';
   if (facts.claim.status === 'AT_RISK') return 'AT_RISK';
@@ -141,7 +144,7 @@ function statusOf(vehicle, facts) {
 
 function rowFor(world, route) {
   const vehicle = vehicleFor(world, route);
-  const facts = evaluate(world, vehicle, route);
+  const facts = { ...evaluate(world, vehicle, route), partFault: criticalFault(world, vehicle) };
   return { route, vehicle, ...facts, status: statusOf(vehicle, facts), swapped: Boolean(activeSwap(world, route)) };
 }
 
@@ -154,6 +157,7 @@ export function availableSpares(world) {
 
 const WHY = {
   OUT_OF_SERVICE: (row) => `${row.vehicle.vin} has a fault and shouldn’t run this route.`,
+  PART_FAULT: (row) => `${row.vehicle.vin} has an open fault on its ${row.partFault.label.toLowerCase()}: ${row.partFault.title.toLowerCase()}. It should get service before running this route.`,
   WONT_FINISH: (row) => `Even the best case falls short of the ${row.kmRemaining.toFixed(0)} km left.`,
   AT_RISK: (row) => `The cautious range is ${cautiousKm(row).toFixed(0)} km, and ${row.kmRemaining.toFixed(0)} km are left.`,
 };
@@ -172,7 +176,7 @@ export function operationsView(world) {
   const counts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, rows.filter((r) => r.status === key).length]));
 
   const actions = rows
-    .filter((row) => ['OUT_OF_SERVICE', 'WONT_FINISH', 'AT_RISK'].includes(row.status))
+    .filter((row) => ['OUT_OF_SERVICE', 'PART_FAULT', 'WONT_FINISH', 'AT_RISK'].includes(row.status))
     .sort((a, b) => STATUS[a.status].rank - STATUS[b.status].rank || a.route.index - b.route.index);
 
   // A spare can only be recommended once, so two decisions never promise the same vehicle.
@@ -209,7 +213,7 @@ function bestSpare(world, route, candidates) {
 // A charged pack is the cheaper fix: same vehicle, same driver. It can't help a faulted vehicle,
 // and a vehicle with no signal can't confirm the swap.
 function bestPack(world, row, candidates) {
-  if (row.vehicle.faulted || !row.vehicle.online) return null;
+  if (row.vehicle.faulted || row.partFault || !row.vehicle.online) return null;
   const works = candidates
     .filter((pack) => evaluate(world, row.vehicle, row.route, { withPack: pack }).claim.status === 'WILL_FINISH')
     .sort((a, b) => packHealth(b) - packHealth(a));

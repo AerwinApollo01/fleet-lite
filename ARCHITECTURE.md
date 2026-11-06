@@ -167,6 +167,18 @@ Ranges need owners, because a wrong range misleads every view at once.
 **Revisit if.** Tolerances need to vary by mode, such as driving and charging, or retention needs limits.
 **Test.** Entries can't change, the log agrees with the twin, and role limits hold in the logic (R40–R41).
 
+## AD-13 · A fix is judged by measurement, and it only changes the future
+
+**Decision.** A fix removes a share of the failures that would have come later, starting when it
+reaches each vehicle. It never edits history. The result compares fixed vehicles with what their old
+rate predicted for the same distance, and it needs enough expected failures before it says anything.
+**Why.** A forecast is a belief. Teams often declare success on launch day or on a few quiet days, and
+then repeat the mistake. The forecast and true effect differ here on purpose.
+**Cost.** The answer takes weeks, and a comparison with an old rate can be fooled by season or routes.
+A real program would also keep unfixed vehicles as a control group where that's safe.
+**Revisit if.** Fixes roll out slowly enough for a proper control group.
+**Test.** A forecast never appears as a result, and an issue can't close on too little data (R42).
+
 ---
 
 ## Decisions already in place

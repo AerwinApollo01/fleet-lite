@@ -47,6 +47,7 @@ const ACTIONS = {
   'service.schedule': ['engineer', 'owner', 'technician'],
   'service.complete': ['engineer', 'technician'],
   'firmware.update': ['engineer', 'technician'],
+  'issue.manage': ['engineer', 'owner'],
   'report.export': ['engineer', 'owner'],
   'trace.view': ['engineer'],
 };

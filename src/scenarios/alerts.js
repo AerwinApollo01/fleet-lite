@@ -26,6 +26,8 @@ function conditions(world) {
     const base = { routeId: row.route.id, vin: row.vehicle.vin, area: row.route.area, driver: row.route.driver };
     if (row.status === 'OUT_OF_SERVICE') {
       found.push({ ...base, key: `fault:${row.vehicle.vin}`, rule: 'vehicle-fault', severity: 'critical', title: `${row.vehicle.vin} is out of service`, detail: `Route ${row.route.id} in ${row.route.area} needs another vehicle.` });
+    } else if (row.status === 'PART_FAULT') {
+      found.push({ ...base, key: `part:${row.vehicle.vin}`, rule: 'part-fault', severity: 'warning', confirmed: row.vehicle.online, title: `${row.vehicle.vin} has a part fault`, detail: `${row.partFault.label} needs service before route ${row.route.id}.` });
     } else if (row.status === 'WONT_FINISH') {
       found.push({ ...base, key: `route:${row.route.id}`, rule: 'route-risk', severity: 'critical', title: `${row.route.id} won’t finish`, detail: `${row.driver ?? row.route.driver} in ${row.route.area} doesn’t have the range for what’s left.` });
     } else if (row.status === 'AT_RISK') {

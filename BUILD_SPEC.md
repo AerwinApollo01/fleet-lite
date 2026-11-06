@@ -261,6 +261,19 @@ time, and late ones are marked. Entries agree with the twin. Technicians see no 
 and only engineers receive raw frames, which decode back to the logged reading. Limits apply in the
 logic, not only on screen.
 
+**R42 · A finding can become a measured fix.**
+Felt: a problem in the data ends in a decision, a fix, and a result, not just a chart.
+Test: an issue needs a finding the data supports, and only an owner or engineer can open one. Options
+show cost, savings, and payback. A patch goes through a gated rollout, and a part replacement through a
+shop queue. A fix lowers future failures and never changes the past, a claim recovers money without
+changing failures, and a rollback reopens the issue. Measurement compares against the old rate, refuses
+a verdict on too little data, and an issue can't close until there's a result.
+
+**R43 · Today reacts to serious part faults.**
+Felt: a dispatcher isn't told a route is on track when the vehicle shouldn't run it.
+Test: an open, serious fault on a critical part marks the route, explains why, and offers a spare but
+not a battery swap. A minor fault doesn't.
+
 ### Architecture choices
 
 **R34 · Architecture tradeoffs can be explored, not just described.**

@@ -84,6 +84,7 @@ function recordEntries(world, vehicle) {
   world.firmwareLog.filter((e) => e.vin === vin).forEach((entry, i) => entries.push(record(`fw:${i}`, entry.at, 'firmware', null, entry.text)));
   const install = world.campaign?.results.get(vin);
   if (install) entries.push(record(`campaign:${world.campaign.id}`, install.at, 'firmware', 'vcu', `Fleet rollout installed ${world.campaign.toVersion}${install.outcome === 'fault' ? ', with a fault' : ''}`, install.outcome === 'fault' ? 'fault' : 'info'));
+  vehicle.fixes.forEach((fix, i) => entries.push(record(`fix:${i}:${fix.at}`, fix.at, 'service', fix.part, `Fix applied for issue #${fix.issueId}: ${fix.label}`)));
   world.swapLog.filter((swap) => swap.to === vin || swap.from === vin).forEach((swap) => entries.push(record(`swap:${swap.id}:${vin}`, swap.at, 'route', null, swap.to === vin ? `Took over route ${swap.routeId}` : `Replaced on route ${swap.routeId}`)));
   world.alerts.filter((alert) => alert.vin === vin).forEach((alert) => entries.push(record(`alert:${alert.id ?? alert.key}:${alert.openedAt}`, alert.openedAt, 'alert', null, alert.title, alert.severity === 'critical' ? 'fault' : 'watch')));
   return entries;

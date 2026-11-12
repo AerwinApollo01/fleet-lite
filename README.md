@@ -7,6 +7,8 @@ decisions behind them are in [ARCHITECTURE.md](ARCHITECTURE.md).
 **All data is simulated and all constants are assumptions.** This is my inference about the
 category. It is not any company's real architecture.
 
+**Try it online:** https://aerwinapollo01.github.io/fleet-lite/
+
 ## Run it
 
 ```bash
@@ -19,6 +21,12 @@ npm run dev
 
 ```bash
 npm test
+```
+
+To publish the online copy after committing a change:
+
+```bash
+npm run deploy
 ```
 
 ## Personas
